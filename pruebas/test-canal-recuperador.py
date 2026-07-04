@@ -20,8 +20,8 @@ from umath import atan2, degrees, sqrt
 # El canal (1) tiene que ser el mismo que transmite el explorador.
 hub = PrimeHub(observe_channels=[1])
 
-motor_izq = Motor(Port.A, Direction.COUNTERCLOCKWISE)
-motor_der = Motor(Port.B)
+motor_izq = Motor(Port.B, Direction.COUNTERCLOCKWISE)
+motor_der = Motor(Port.A)
 robot = DriveBase(motor_izq, motor_der, wheel_diameter=56, axle_track=112)
 
 hub.display.char("R")  # "R" de Recuperador

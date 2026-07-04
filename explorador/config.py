@@ -17,7 +17,7 @@ DIRECCION_MOTOR_IZQ = Direction.COUNTERCLOCKWISE  # el izquierdo suele ir invert
 DIRECCION_MOTOR_DER = Direction.CLOCKWISE
 
 WHEEL_DIAMETER = 56   # mm  -> medir y calibrar (ver docs/calibracion.md)
-AXLE_TRACK = 112      # mm  -> distancia entre las dos ruedas
+AXLE_TRACK = 113      # mm  -> distancia entre las dos ruedas
 
 # --- Deteccion: que objeto buscamos y cuando le creemos ---
 CLASE_OBJETIVO = 1    # indice de la clase del modelo Teachable Machine

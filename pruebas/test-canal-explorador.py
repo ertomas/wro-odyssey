@@ -20,7 +20,7 @@ hub = PrimeHub(broadcast_channel=1)
 
 # Coordenada fija de prueba, en milimetros, mas la "clase" del objeto.
 #   x = 300 mm hacia adelante, y = 200 mm hacia el costado, clase = 0
-X, Y, CLASE = 300, 200, 0
+X, Y, CLASE = 3000, 2000, 0
 
 hub.display.char("E")  # "E" de Explorador
 

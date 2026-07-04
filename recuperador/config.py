@@ -11,13 +11,13 @@ from pybricks.parameters import Port, Direction
 CANAL = 1
 
 # --- Hardware: puertos y geometria del robot ---
-PUERTO_MOTOR_IZQ = Port.A
-PUERTO_MOTOR_DER = Port.B
+PUERTO_MOTOR_IZQ = Port.B
+PUERTO_MOTOR_DER = Port.A
 DIRECCION_MOTOR_IZQ = Direction.COUNTERCLOCKWISE  # el izquierdo suele ir invertido
 DIRECCION_MOTOR_DER = Direction.CLOCKWISE
 
 WHEEL_DIAMETER = 56   # mm  -> medir y calibrar (ver docs/calibracion.md)
-AXLE_TRACK = 112      # mm  -> distancia entre las dos ruedas
+AXLE_TRACK = 160      # mm  -> distancia entre las dos ruedas
 
 # --- Garra: motor que abre/cierra la pinza ---
 PUERTO_GARRA = Port.C
