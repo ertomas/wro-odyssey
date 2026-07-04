@@ -29,8 +29,8 @@ más preciso porque promedia el error.
 
 | Robot | WHEEL_DIAMETER | AXLE_TRACK | Fecha |
 |-------|----------------|------------|-------|
-| Explorador | 56 (sin calibrar) | 112 (sin calibrar) | — |
-| Recuperador | 56 (sin calibrar) | 112 (sin calibrar) | — |
+| Explorador | 56 | 113 | 2026-07-04 |
+| Recuperador | 56 | 160 | 2026-07-04 |
 
 ## Garra: `GARRA_DUTY_LIMIT` y `GARRA_VELOCIDAD`
 
