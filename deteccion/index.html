@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detección de objetos — WRO Odyssey</title>
+
+  <!-- TensorFlow.js + Teachable Machine (imagen). Cargan globales: tf, tmImage -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+
+  <style>
+    :root {
+      --naranja: #f97316;
+      --naranja-osc: #ea580c;
+      --slate-900: #0f172a;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --verde: #16a34a;
+      --rojo: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; }
+    h2 { font-size: 1.1rem; margin: 0 0 12px; }
+    .muted { color: #64748b; font-size: 0.9rem; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+
+    .header { display: flex; gap: 16px; align-items: flex-start; }
+    .badge {
+      background: var(--naranja); color: #fff; font-size: 1.8rem;
+      width: 56px; height: 56px; border-radius: 12px; flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    label.tag {
+      display: block; font-size: 0.7rem; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;
+    }
+    input[type=text] {
+      flex: 1; min-width: 0; border: 1px solid #cbd5e1; border-radius: 8px;
+      padding: 8px 12px; font-size: 0.9rem;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    button {
+      font-size: 0.9rem; font-weight: 600; padding: 8px 16px;
+      border: none; border-radius: 8px; color: #fff; cursor: pointer;
+      background: var(--slate-700); transition: background 0.15s, opacity 0.15s;
+    }
+    button:hover { background: var(--slate-600); }
+    button.naranja { background: var(--naranja); }
+    button.naranja:hover { background: var(--naranja-osc); }
+    button.verde { background: var(--verde); }
+    button.rojo { background: var(--rojo); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.full { width: 100%; margin-top: 8px; }
+
+    .aviso {
+      border-left: 4px solid; border-radius: 0 12px 12px 0;
+      padding: 14px 16px; margin-bottom: 20px; font-size: 0.9rem;
+    }
+    .aviso.rojo { background: #fef2f2; border-color: #f87171; color: #991b1b; }
+    .aviso.azul { background: #eff6ff; border-color: #60a5fa; color: #1e40af; }
+    .aviso.naranja { background: #fff7ed; border-color: #fb923c; color: #9a3412; }
+    .aviso b { font-weight: 700; }
+    .hidden { display: none; }
+
+    .panel {
+      background: var(--slate-900); color: #fff; border-radius: 16px;
+      padding: 20px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+    }
+    .estado { display: flex; align-items: center; gap: 12px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--slate-600); }
+    .dot.connecting { background: #facc15; animation: pulse 1s infinite; }
+    .dot.on { background: #4ade80; }
+    .dot.error { background: #ef4444; }
+    @keyframes pulse { 50% { opacity: 0.3; } }
+
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 20px; }
+    @media (min-width: 560px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+    .camara {
+      background: #000; border-radius: 16px; overflow: hidden;
+      position: relative; aspect-ratio: 1;
+    }
+    .camara video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .mira {
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center; pointer-events: none;
+    }
+    .mira div {
+      width: 64px; height: 64px; border: 2px solid rgba(255,255,255,0.7); border-radius: 8px;
+    }
+    .cx-marker {
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      background: var(--naranja); pointer-events: none; left: 50%;
+    }
+    .cam-hint {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; color: #94a3b8; font-size: 0.9rem; text-align: center; padding: 16px;
+    }
+
+    .lectura { display: flex; flex-direction: column; }
+    .pred-name { font-size: 1.25rem; font-weight: 700; }
+    .barra { height: 8px; background: #f1f5f9; border-radius: 999px; overflow: hidden; margin-top: 4px; }
+    .barra > div { height: 100%; background: var(--verde); width: 0%; transition: width 0.15s; }
+    .metricas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: center; margin: 16px 0; }
+    .metrica { background: #f8fafc; border-radius: 8px; padding: 8px; }
+    .metrica .valor { font-size: 1.1rem; font-weight: 700; }
+    .metrica .etq { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+    .acciones { margin-top: auto; }
+
+    details { margin-bottom: 24px; }
+    summary { font-size: 0.9rem; color: #64748b; cursor: pointer; }
+    pre.log {
+      margin-top: 8px; background: var(--slate-900); color: #cbd5e1;
+      font-size: 0.75rem; border-radius: 12px; padding: 12px; height: 128px;
+      overflow: auto; font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    ol { margin: 8px 0 0; padding-left: 20px; }
+    code {
+      background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px;
+      font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85em;
+    }
+    a { color: var(--naranja-osc); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Header -->
+    <div class="card">
+      <div class="header">
+        <div class="badge">🤖</div>
+        <div>
+          <h1>Reconocer un objeto con tu teléfono</h1>
+          <p class="muted">
+            Entrená un modelo en <b>Teachable Machine</b>, pegá su link acá, y el teléfono le manda
+            al hub <b>explorador</b> qué objeto ve y dónde está en la imagen. Gratis y sin la app oficial.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aviso de compatibilidad -->
+    <div id="unsupported" class="aviso rojo hidden">
+      <p><b>⚠️ Este navegador no soporta Web Bluetooth.</b></p>
+      <p>Usá <b>Chrome</b> en Android (no funciona en Firefox ni en iPhone/Safari).
+         La página tiene que abrirse por <b>https://</b> o <b>localhost</b>.</p>
+    </div>
+
+    <!-- Modelo de Teachable Machine -->
+    <div class="card">
+      <label class="tag">Link del modelo de Teachable Machine</label>
+      <div class="row">
+        <input id="model-url" type="text" inputmode="url"
+               placeholder="https://teachablemachine.withgoogle.com/models/XXXXXX/" />
+        <button id="btn-load-model" class="naranja">Cargar modelo</button>
+      </div>
+      <p id="model-status" class="muted" style="margin:8px 0 0;">Todavía no se cargó ningún modelo.</p>
+    </div>
+
+    <!-- Panel de conexión -->
+    <div class="panel">
+      <div class="estado">
+        <span id="status-dot" class="dot"></span>
+        <span id="status-text" style="font-size:0.9rem;">Desconectado</span>
+      </div>
+      <button id="btn-connect" class="naranja">Conectar hub</button>
+    </div>
+
+    <!-- Cámara + lectura -->
+    <div class="grid">
+      <div class="camara">
+        <video id="video" playsinline autoplay muted></video>
+        <div class="mira"><div></div></div>
+        <div id="cx-marker" class="cx-marker hidden"></div>
+        <div id="cam-hint" class="cam-hint">Tocá «Encender cámara» para empezar</div>
+      </div>
+
+      <div class="card lectura" style="margin-bottom:0;">
+        <label class="tag">Objeto detectado</label>
+        <div>
+          <div id="pred-name" class="pred-name">—</div>
+          <div class="barra"><div id="pred-bar"></div></div>
+          <div id="pred-conf" class="muted mono" style="margin-top:4px;">confianza —</div>
+        </div>
+        <div class="metricas">
+          <div class="metrica"><div id="val-cx" class="valor mono">—</div><div class="etq">centro X</div></div>
+          <div class="metrica"><div id="val-area" class="valor mono">—</div><div class="etq">tamaño</div></div>
+        </div>
+        <div class="acciones">
+          <button id="btn-camera" class="full">Encender cámara</button>
+          <button id="btn-calibrate" class="full" disabled>🎯 Fijar color del objeto (centrá la mira)</button>
+          <button id="btn-stream" class="verde full" disabled>▶ Empezar a enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Registro técnico -->
+    <details>
+      <summary>Ver registro técnico</summary>
+      <pre id="log" class="log"></pre>
+    </details>
+
+    <!-- Cómo se usa -->
+    <div class="aviso azul">
+      <p><b>Cómo se usa</b></p>
+      <ol>
+        <li>Entrená un modelo en <b>teachablemachine.withgoogle.com</b> (modo Imagen) con fotos de tu objeto.</li>
+        <li><b>Export Model</b> → <b>Upload my model</b> → copiá el link y pegalo arriba → <b>Cargar modelo</b>.</li>
+        <li>Subí la carpeta <code>explorador/</code> al hub y dale play.</li>
+        <li>Acá: <b>Encender cámara</b> → apuntá al objeto y <b>Fijar color</b> → <b>Conectar hub</b> → <b>Empezar a enviar</b>.</li>
+      </ol>
+    </div>
+
+    <div class="aviso naranja">
+      <p><b>💡 Qué le llega al hub</b></p>
+      <p>4 bytes: <b>clase</b> (qué objeto, índice del modelo), <b>confianza</b> (0-100),
+         <b>cx</b> (centro horizontal, 50 = centrado) y <b>tamaño</b> (0-100, más grande = más cerca).
+         El reconocimiento lo hace Teachable Machine; el <b>cx</b> y el <b>tamaño</b> salen del color que fijaste.
+         El contrato completo está en <code>docs/contrato-datos.md</code>.</p>
+    </div>
+
+  </div>
+
+  <script>
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Comunicación con el hub Pybricks por Web Bluetooth (librería inline)
+  // ═══════════════════════════════════════════════════════════════════════
+  const PYBRICKS_SERVICE_UUID = 'c5f50001-8280-46da-89f4-6d8051e4aeef';
+  const PYBRICKS_COMMAND_EVENT_UUID = 'c5f50002-8280-46da-89f4-6d8051e4aeef';
+
+  const CMD_WRITE_APP_DATA = 0x07;
+  const EVT_STATUS = 0x00;
+  const EVT_STDOUT = 0x01;
+  const EVT_APP_DATA = 0x02;
+
+  function isWebBluetoothSupported() {
+    return typeof navigator !== 'undefined' && !!navigator.bluetooth;
+  }
+
+  class PybricksHub extends EventTarget {
+    constructor() {
+      super();
+      this.device = null;
+      this.characteristic = null;
+      this._writeBusy = false;
+    }
+    get connected() { return !!(this.device && this.device.gatt && this.device.gatt.connected); }
+    get name() { return (this.device && this.device.name) || null; }
+
+    async connect() {
+      if (!isWebBluetoothSupported()) throw new Error('Web Bluetooth no está disponible.');
+      this.device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: [PYBRICKS_SERVICE_UUID] }],
+        optionalServices: [PYBRICKS_SERVICE_UUID],
+      });
+      this.device.addEventListener('gattserverdisconnected', () => this._onDisconnected());
+      const server = await this.device.gatt.connect();
+      const service = await server.getPrimaryService(PYBRICKS_SERVICE_UUID);
+      this.characteristic = await service.getCharacteristic(PYBRICKS_COMMAND_EVENT_UUID);
+      await this.characteristic.startNotifications();
+      this.characteristic.addEventListener('characteristicvaluechanged', (e) => this._onNotify(e));
+      this.dispatchEvent(new CustomEvent('connect', { detail: { name: this.name } }));
+      return this.name;
+    }
+    disconnect() {
+      if (this.device && this.device.gatt && this.device.gatt.connected) this.device.gatt.disconnect();
+    }
+    _onDisconnected() {
+      this.characteristic = null;
+      this.dispatchEvent(new Event('disconnect'));
+    }
+    _onNotify(event) {
+      const data = new Uint8Array(event.target.value.buffer);
+      const type = data[0];
+      const bytes = data.slice(1);
+      if (type === EVT_STDOUT) {
+        this.dispatchEvent(new CustomEvent('stdout', { detail: { bytes, text: new TextDecoder().decode(bytes) } }));
+      } else if (type === EVT_APP_DATA) {
+        this.dispatchEvent(new CustomEvent('appdata', { detail: { bytes } }));
+      } else if (type === EVT_STATUS) {
+        this.dispatchEvent(new CustomEvent('status', { detail: { bytes } }));
+      }
+    }
+    async _write(byteArray) {
+      if (!this.characteristic) throw new Error('Hub no conectado.');
+      await this.characteristic.writeValueWithResponse(new Uint8Array(byteArray));
+    }
+    async writeAppData(bytes, offset = 0) {
+      await this._write([CMD_WRITE_APP_DATA, offset & 0xff, (offset >> 8) & 0xff, ...bytes]);
+    }
+    // Descarta el envío si el anterior sigue en curso: ideal para streaming.
+    async sendAppData(bytes, offset = 0) {
+      if (this._writeBusy) return false;
+      this._writeBusy = true;
+      try { await this.writeAppData(bytes, offset); return true; }
+      finally { this._writeBusy = false; }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Lógica de la página
+  // ═══════════════════════════════════════════════════════════════════════
+  const SEND_INTERVAL_MS = 100;    // 10 envíos por segundo
+  const PREDICT_INTERVAL_MS = 150; // correr el modelo ~7 veces por segundo
+  const HUE_TOL = 22;              // tolerancia de tono para el blob (grados)
+  const SAT_MIN = 30;              // saturación mínima para contar un píxel
+
+  const hub = new PybricksHub();
+  let cameraOn = false;
+  let streaming = false;
+  let sendTimer = null;
+  let model = null;
+  let targetHue = null;            // tono del objeto (calibrado)
+  let lastData = [0, 0, 50, 0];    // [clase, confianza, cx, area]
+
+  const $ = (id) => document.getElementById(id);
+  const video = $('video');
+  const sampler = document.createElement('canvas');
+  sampler.width = 64; sampler.height = 64;
+  const sctx = sampler.getContext('2d', { willReadFrequently: true });
+
+  function log(msg) {
+    const el = $('log');
+    el.textContent += '[' + new Date().toLocaleTimeString() + '] ' + msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setStatus(state, text) {
+    $('status-dot').className = 'dot ' + (state === 'off' ? '' : state);
+    $('status-text').textContent = text;
+  }
+
+  // ── Soporte ──────────────────────────────────────────────────────────
+  if (!isWebBluetoothSupported()) {
+    $('unsupported').classList.remove('hidden');
+    $('btn-connect').setAttribute('disabled', 'true');
+  }
+
+  // ── Cargar modelo de Teachable Machine ───────────────────────────────
+  $('btn-load-model').addEventListener('click', async () => {
+    let url = $('model-url').value.trim();
+    if (!url) { alert('Pegá el link del modelo de Teachable Machine.'); return; }
+    if (!url.endsWith('/')) url += '/';
+    try {
+      $('model-status').textContent = 'Cargando modelo…';
+      log('Cargando modelo desde ' + url);
+      model = await tmImage.load(url + 'model.json', url + 'metadata.json');
+      const n = model.getTotalClasses();
+      $('model-status').textContent = 'Modelo cargado: ' + n + ' clases.';
+      log('Modelo cargado (' + n + ' clases).');
+      predictLoop();
+    } catch (err) {
+      $('model-status').textContent = 'Error al cargar el modelo.';
+      log('Error de modelo: ' + err.message);
+      alert('No se pudo cargar el modelo: ' + err.message);
+    }
+  });
+
+  // ── Cámara ───────────────────────────────────────────────────────────
+  $('btn-camera').addEventListener('click', async () => {
+    if (cameraOn) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }, audio: false,
+      });
+      video.srcObject = stream;
+      await video.play();
+      cameraOn = true;
+      $('cam-hint').classList.add('hidden');
+      $('btn-camera').textContent = 'Cámara encendida';
+      $('btn-camera').setAttribute('disabled', 'true');
+      $('btn-calibrate').removeAttribute('disabled');
+      $('btn-stream').removeAttribute('disabled');
+      log('Cámara encendida.');
+      requestAnimationFrame(blobLoop);
+    } catch (err) {
+      log('Error de cámara: ' + err.message);
+      alert('No se pudo acceder a la cámara: ' + err.message);
+    }
+  });
+
+  // Convierte RGB (0-255) a HSV con H en grados (0-360), S y V en 0-100.
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    const s = max === 0 ? 0 : d / max;
+    return [h, s * 100, max * 100];
+  }
+
+  // ── Calibrar color del objeto (promedio de la mira central) ──────────
+  $('btn-calibrate').addEventListener('click', () => {
+    if (!cameraOn || !video.videoWidth) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const box = Math.min(vw, vh) * 0.25;
+    sctx.drawImage(video, (vw - box) / 2, (vh - box) / 2, box, box, 0, 0, 16, 16);
+    const { data } = sctx.getImageData(0, 0, 16, 16);
+    let r = 0, g = 0, b = 0;
+    const n = data.length / 4;
+    for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
+    const [h] = rgbToHsv(r / n, g / n, b / n);
+    targetHue = h;
+    $('cx-marker').classList.remove('hidden');
+    log('Color del objeto fijado: tono ' + Math.round(h) + '°');
+  });
+
+  // Distancia angular entre dos tonos (0-360, circular).
+  function hueDist(a, b) {
+    const d = Math.abs(a - b) % 360;
+    return d > 180 ? 360 - d : d;
+  }
+
+  // ── Loop del blob: calcula cx y area del color objetivo ──────────────
+  function blobLoop() {
+    if (!cameraOn) return;
+    if (video.videoWidth && targetHue !== null) {
+      const W = sampler.width, H = sampler.height;
+      sctx.drawImage(video, 0, 0, W, H);
+      const { data } = sctx.getImageData(0, 0, W, H);
+      let sumX = 0, count = 0;
+      for (let p = 0; p < data.length; p += 4) {
+        const [h, s, v] = rgbToHsv(data[p], data[p + 1], data[p + 2]);
+        if (s >= SAT_MIN && v >= 15 && hueDist(h, targetHue) <= HUE_TOL) {
+          sumX += (p / 4) % W; count++;
+        }
+      }
+      let cx = 50, area = 0;
+      if (count > 0) {
+        cx = Math.round((sumX / count) / W * 100);
+        area = Math.min(100, Math.round((count / (W * H)) * 100));
+      }
+      lastData[2] = cx;
+      lastData[3] = area;
+      $('val-cx').textContent = String(cx);
+      $('val-area').textContent = String(area);
+      $('cx-marker').style.left = cx + '%';
+    }
+    requestAnimationFrame(blobLoop);
+  }
+
+  // ── Loop del modelo: clase + confianza ───────────────────────────────
+  async function predictLoop() {
+    if (model && cameraOn && video.videoWidth) {
+      try {
+        const preds = await model.predict(video);
+        let best = 0;
+        for (let i = 1; i < preds.length; i++) {
+          if (preds[i].probability > preds[best].probability) best = i;
+        }
+        const conf = Math.round(preds[best].probability * 100);
+        lastData[0] = best;
+        lastData[1] = conf;
+        $('pred-name').textContent = preds[best].className;
+        $('pred-bar').style.width = conf + '%';
+        $('pred-conf').textContent = 'confianza ' + conf + '% · clase ' + best;
+      } catch (err) {
+        log('Error de predicción: ' + err.message);
+      }
+    }
+    if (model) setTimeout(predictLoop, PREDICT_INTERVAL_MS);
+  }
+
+  // ── Bluetooth ────────────────────────────────────────────────────────
+  $('btn-connect').addEventListener('click', async () => {
+    if (hub.connected) { hub.disconnect(); return; }
+    try {
+      setStatus('connecting', 'Buscando hub…');
+      log('Buscando hub…');
+      await hub.connect();
+    } catch (err) {
+      setStatus('error', 'Error de conexión');
+      log('Error BLE: ' + err.message);
+    }
+  });
+
+  hub.addEventListener('connect', (e) => {
+    const name = e.detail.name || 'hub';
+    setStatus('on', 'Conectado a ' + name);
+    $('btn-connect').textContent = 'Desconectar';
+    log('¡Conectado a ' + name + '! Listo para enviar.');
+  });
+  hub.addEventListener('disconnect', () => {
+    setStatus('off', 'Desconectado');
+    $('btn-connect').textContent = 'Conectar hub';
+    log('Hub desconectado.');
+    stopStreaming();
+  });
+  hub.addEventListener('stdout', (e) => {
+    const txt = e.detail.text.replace(/\s+$/, '');
+    if (txt) log('hub » ' + txt);
+  });
+
+  // ── Envío al hub ─────────────────────────────────────────────────────
+  $('btn-stream').addEventListener('click', () => {
+    if (streaming) { stopStreaming(); return; }
+    if (!hub.connected) { alert('Primero conectá el hub.'); return; }
+    streaming = true;
+    const b = $('btn-stream');
+    b.textContent = '⏸ Detener envío';
+    b.classList.replace('verde', 'rojo');
+    sendTimer = window.setInterval(sendData, SEND_INTERVAL_MS);
+    log('Enviando datos al hub…');
+  });
+
+  function stopStreaming() {
+    streaming = false;
+    if (sendTimer) { clearInterval(sendTimer); sendTimer = null; }
+    const b = $('btn-stream');
+    b.textContent = '▶ Empezar a enviar';
+    b.classList.replace('rojo', 'verde');
+  }
+
+  async function sendData() {
+    if (!hub.connected) return;
+    // 4 bytes: clase, confianza, cx, area.
+    const bytes = [
+      Math.min(255, lastData[0]),
+      Math.min(100, lastData[1]),
+      Math.min(100, lastData[2]),
+      Math.min(100, lastData[3]),
+    ];
+    try {
+      await hub.sendAppData(bytes);
+    } catch (err) {
+      log('Error al enviar: ' + err.message);
+    }
+  }
+  </script>
+</body>
+</html>

@@ -42,8 +42,10 @@ a un **robot recuperador**, que navega hasta el objeto y lo agarra con una garra
    ver [`docs/setup-cancha.md`](docs/setup-cancha.md).
 4. **Encender primero el recuperador** (queda escuchando) y después el explorador.
 5. **Abrir la página de detección** en el teléfono y conectarla al explorador:
-   👉 [página de detección con Teachable Machine](https://ertomas.github.io/wro-pybricks/deteccion-objeto)
-   (vive en el repo `wro-pybricks`; acá solo la usamos).
+   [`deteccion/index.html`](deteccion/index.html). Es una página HTML suelta (sin build):
+   servila por `https://` o `localhost` (Web Bluetooth y la cámara no andan con `file://`).
+   Desde la laptop, lo más rápido: `cd deteccion && python -m http.server` y abrila desde el
+   teléfono con la IP de la laptop, o subila a cualquier hosting estático.
 
 ## Antes de tocar código: probá el canal
 
@@ -53,6 +55,7 @@ Corré los dos programas de [`pruebas/`](pruebas/) (uno en cada hub) para confir
 
 ## Documentación
 
+- [`deteccion/index.html`](deteccion/index.html) — página de la cámara con Teachable Machine (HTML suelto).
 - [`docs/contrato-datos.md`](docs/contrato-datos.md) — qué datos se mandan y en qué formato.
 - [`docs/calibracion.md`](docs/calibracion.md) — medir las ruedas y ajustar la garra.
 - [`docs/setup-cancha.md`](docs/setup-cancha.md) — origen, rumbo y orden de arranque.
