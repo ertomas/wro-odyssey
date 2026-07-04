@@ -3,6 +3,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Entorno virtual (pybricksdev para subir al hub) y artefactos de compilacion
+.venv/
+build/
+
 # Sistema
 .DS_Store
 Thumbs.db
