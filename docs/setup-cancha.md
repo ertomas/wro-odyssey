@@ -50,4 +50,6 @@ en ambos a la vez para no cruzar señales.
 ### Qué muestra cada pantalla (para seguir la misión)
 
 **Explorador:** `B` busca → `C` centra → `A` se acerca → `T` transmite → `F` fin.
-**Recuperador:** `R` escuchando → (beep al recibir) → `G` cerrando la garra → `F` fin.
+**Recuperador:** `R` escuchando → (beep al recibir) → navega → `G` agarra (baja,
+cierra, levanta) → vuelve → `A` suelta → `F` fin. Si al llegar el ultrasonido no
+confirma el objeto: `X` + beep grave (no agarra).
