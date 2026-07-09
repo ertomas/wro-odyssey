@@ -27,8 +27,8 @@ import urandom
 # --- Parametros de la prueba ---
 CANAL = 1                 # el mismo que escucha el recuperador
 CLASE = 1                 # "clase" del objeto que va en la tupla transmitida
-TX_MIN, TX_MAX = 300, 1500     # rango del sitio en x (mm, siempre adelante)
-TY_MIN, TY_MAX = -400, 1400    # rango del sitio en y (mm, a los costados)
+TX_MIN, TX_MAX = 300, 1000     # rango del sitio en x (mm, siempre adelante)
+TY_MIN, TY_MAX = -400, 1000    # rango del sitio en y (mm, a los costados)
 HOLGURA = 500             # mm que se corre al costado para despejar el punto
 PAUSA_MARCA = 3000        # ms que espera en el sitio para que lo marques con cinta
 
