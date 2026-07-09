@@ -19,8 +19,11 @@ DIRECCION_MOTOR_DER = Direction.CLOCKWISE
 WHEEL_DIAMETER = 56   # mm  -> medir y calibrar (ver docs/calibracion.md)
 AXLE_TRACK = 113      # mm  -> distancia entre las dos ruedas
 
-# --- Deteccion: que objeto buscamos y cuando le creemos ---
-CLASE_OBJETIVO = 1    # indice de la clase del modelo Teachable Machine
+# --- Deteccion: que objeto(s) buscamos y cuando le creemos ---
+# Indices de las clases del modelo Teachable Machine que cuentan como "objetivo".
+# El modelo incluido tiene: 0=egipto, 1=Panama, 2=Suelo. Vale CUALQUIERA de la
+# lista (ej.: (0, 1) = egipto o Panama). Para una sola clase, dejar (1,).
+CLASES_OBJETIVO = (0, 1)
 CONFIANZA_MIN = 70    # % minimo de certeza para creerle a la prediccion
 
 # --- Centrado visual (donde queremos el objeto dentro de la imagen) ---

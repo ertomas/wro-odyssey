@@ -67,11 +67,13 @@ def leer_camara():
 
 # --- 1. Buscar el objeto girando despacio ---
 hub.display.char("B")
+clase_detectada = config.CLASES_OBJETIVO[0]  # cual de las clases objetivo vimos
 robot.drive(0, config.VEL_BUSQUEDA)  # girar en el lugar
 while True:
     clase, conf, cx, area = leer_camara()
     actualizar_pose()
-    if clase == config.CLASE_OBJETIVO and conf >= config.CONFIANZA_MIN:
+    if clase in config.CLASES_OBJETIVO and conf >= config.CONFIANZA_MIN:
+        clase_detectada = clase
         break
     wait(20)
 robot.stop()
@@ -81,7 +83,8 @@ hub.display.char("C")
 while True:
     clase, conf, cx, area = leer_camara()
     actualizar_pose()
-    if clase == config.CLASE_OBJETIVO and conf >= config.CONFIANZA_MIN:
+    if clase in config.CLASES_OBJETIVO and conf >= config.CONFIANZA_MIN:
+        clase_detectada = clase
         error = cx - config.CX_CENTRO  # >0 = objeto a la derecha
         if abs(error) <= config.CX_TOLERANCIA:
             robot.stop()
@@ -114,7 +117,7 @@ hub.speaker.beep()
 
 # Transmitir varias veces (~5 s) para asegurar que el recuperador lo reciba.
 for _ in range(50):
-    hub.ble.broadcast((obj_x, obj_y, config.CLASE_OBJETIVO))
+    hub.ble.broadcast((obj_x, obj_y, clase_detectada))
     wait(100)
 
 hub.display.char("F")
