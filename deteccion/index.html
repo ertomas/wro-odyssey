@@ -167,15 +167,22 @@
          La página tiene que abrirse por <b>https://</b> o <b>localhost</b>.</p>
     </div>
 
-    <!-- Modelo de Teachable Machine -->
+    <!-- Modelo de Teachable Machine (incluido en el repo, se autocarga) -->
     <div class="card">
-      <label class="tag">Link del modelo de Teachable Machine</label>
-      <div class="row">
-        <input id="model-url" type="text" inputmode="url"
-               placeholder="https://teachablemachine.withgoogle.com/models/XXXXXX/" />
-        <button id="btn-load-model" class="naranja">Cargar modelo</button>
-      </div>
-      <p id="model-status" class="muted" style="margin:8px 0 0;">Todavía no se cargó ningún modelo.</p>
+      <label class="tag">Modelo de Teachable Machine</label>
+      <p id="model-status" class="muted" style="margin:0;">Cargando modelo incluido…</p>
+      <details style="margin-top:12px;">
+        <summary>Usar otro modelo (opcional)</summary>
+        <p class="muted" style="margin:8px 0;">
+          Pegá el link de un modelo de Teachable Machine para probarlo sin tocar el repo.
+          El incluido está en <code>deteccion/model/</code>.
+        </p>
+        <div class="row">
+          <input id="model-url" type="text" inputmode="url"
+                 placeholder="https://teachablemachine.withgoogle.com/models/XXXXXX/" />
+          <button id="btn-load-model" class="naranja">Cargar modelo</button>
+        </div>
+      </details>
     </div>
 
     <!-- Panel de conexión -->
@@ -225,11 +232,14 @@
     <div class="aviso azul">
       <p><b>Cómo se usa</b></p>
       <ol>
-        <li>Entrená un modelo en <b>teachablemachine.withgoogle.com</b> (modo Imagen) con fotos de tu objeto.</li>
-        <li><b>Export Model</b> → <b>Upload my model</b> → copiá el link y pegalo arriba → <b>Cargar modelo</b>.</li>
+        <li>El modelo ya viene <b>incluido</b> (<code>deteccion/model/</code>) y se carga solo al abrir.</li>
         <li>Subí la carpeta <code>explorador/</code> al hub y dale play.</li>
         <li>Acá: <b>Encender cámara</b> → apuntá al objeto y <b>Fijar color</b> → <b>Conectar hub</b> → <b>Empezar a enviar</b>.</li>
       </ol>
+      <p class="muted" style="margin:8px 0 0;">
+        ¿Cambiar el modelo? Reemplazá los archivos de <code>deteccion/model/</code> (o usá
+        «Usar otro modelo» arriba para probar uno desde una URL).
+      </p>
     </div>
 
     <div class="aviso naranja">
@@ -358,18 +368,39 @@
   }
 
   // ── Cargar modelo de Teachable Machine ───────────────────────────────
+  let predictStarted = false;
+
+  // Carga un modelo (model.json + metadata.json) y deja corriendo la predicción.
+  // Reutilizada por la autocarga del modelo incluido y por el override de URL.
+  async function loadModel(modelUrl, metadataUrl, etiqueta) {
+    $('model-status').textContent = 'Cargando ' + etiqueta + '…';
+    log('Cargando ' + etiqueta + ' (' + modelUrl + ')');
+    model = await tmImage.load(modelUrl, metadataUrl);
+    const n = model.getTotalClasses();
+    $('model-status').textContent = 'Modelo cargado: ' + n + ' clases.';
+    log('Modelo cargado (' + n + ' clases).');
+    if (!predictStarted) { predictStarted = true; predictLoop(); }
+  }
+
+  // Autocarga del modelo incluido en el repo (deteccion/model/).
+  async function loadBundledModel() {
+    try {
+      await loadModel('./model/model.json', './model/metadata.json', 'modelo incluido');
+    } catch (err) {
+      $('model-status').textContent =
+        'No se encontró el modelo incluido en model/. Bajalo de Teachable Machine ' +
+        '(Download my model → TensorFlow.js) o pegá una URL en «Usar otro modelo».';
+      log('No se pudo cargar el modelo incluido: ' + err.message);
+    }
+  }
+
+  // Override manual: cargar el modelo desde una URL pegada.
   $('btn-load-model').addEventListener('click', async () => {
     let url = $('model-url').value.trim();
     if (!url) { alert('Pegá el link del modelo de Teachable Machine.'); return; }
     if (!url.endsWith('/')) url += '/';
     try {
-      $('model-status').textContent = 'Cargando modelo…';
-      log('Cargando modelo desde ' + url);
-      model = await tmImage.load(url + 'model.json', url + 'metadata.json');
-      const n = model.getTotalClasses();
-      $('model-status').textContent = 'Modelo cargado: ' + n + ' clases.';
-      log('Modelo cargado (' + n + ' clases).');
-      predictLoop();
+      await loadModel(url + 'model.json', url + 'metadata.json', 'modelo desde URL');
     } catch (err) {
       $('model-status').textContent = 'Error al cargar el modelo.';
       log('Error de modelo: ' + err.message);
@@ -553,6 +584,9 @@
       log('Error al enviar: ' + err.message);
     }
   }
+
+  // ── Arranque: autocargar el modelo incluido ──────────────────────────
+  loadBundledModel();
   </script>
 </body>
 </html>

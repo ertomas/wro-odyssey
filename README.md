@@ -46,6 +46,8 @@ a un **robot recuperador**, que navega hasta el objeto y lo agarra con una garra
    servila por `https://` o `localhost` (Web Bluetooth y la cámara no andan con `file://`).
    Desde la laptop, lo más rápido: `cd deteccion && python -m http.server` y abrila desde el
    teléfono con la IP de la laptop, o subila a cualquier hosting estático.
+   El **modelo de Teachable Machine viene incluido** en [`deteccion/model/`](deteccion/model/)
+   y la página lo carga sola al abrir (para cambiarlo, ver el README de esa carpeta).
 
 ## Antes de tocar código: probá el canal
 
