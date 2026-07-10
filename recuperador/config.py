@@ -58,4 +58,4 @@ INTENTOS_AGARRE = 5       # cuantas veces reintenta acercarse antes de rendirse
 # compartido. En estos robots turn() positivo gira a la IZQUIERDA, asi que
 # "izquierda" = +y (ej.: 20 cm a la izquierda -> OFFSET_Y = 200).
 OFFSET_X = 0    # mm: adelante(+)/atras(-) respecto del explorador
-OFFSET_Y = 0    # mm: izquierda(+)/derecha(-) respecto del explorador
+OFFSET_Y = -200    # mm: izquierda(+)/derecha(-) respecto del explorador

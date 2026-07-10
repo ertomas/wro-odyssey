@@ -24,7 +24,7 @@ AXLE_TRACK = 113      # mm  -> distancia entre las dos ruedas
 # El modelo incluido tiene: 0=egipto, 1=Panama, 2=Suelo. Vale CUALQUIERA de la
 # lista (ej.: (0, 1) = egipto o Panama). Para una sola clase, dejar (1,).
 CLASES_OBJETIVO = (0, 1)
-CONFIANZA_MIN = 70    # % minimo de certeza para creerle a la prediccion
+CONFIANZA_MIN = 85    # % minimo de certeza para creerle a la prediccion
 
 # --- Centrado visual (donde queremos el objeto dentro de la imagen) ---
 CX_CENTRO = 50        # 50 = centro de la imagen
@@ -32,9 +32,16 @@ CX_TOLERANCIA = 8     # margen aceptable alrededor del centro
 KP_CENTRADO = 1.5     # ganancia proporcional del giro al centrar
 
 # --- Acercamiento ---
-AREA_CERCA = 45       # area (0..100) a la que consideramos "ya estoy cerca"
-OFFSET_OBJETO = 60    # mm extra delante del robot donde queda el objeto
+AREA_CERCA = 15       # "tamano" (0..100) al que frena. Si nunca frena, es que el
+                      # tamano real (visible en el telefono) no llega a este valor: bajalo.
+OFFSET_OBJETO = 150    # mm extra delante del robot donde queda el objeto
+
+# --- Busqueda ---
+AVANCE_INICIAL = 500  # mm que avanza en linea recta antes de empezar a girar a buscar
+
+# --- Final ---
+RETROCESO_FINAL = 500  # mm que retrocede tras transmitir, para liberar la zona del objeto
 
 # --- Velocidades de maniobra ---
-VEL_BUSQUEDA = 30     # deg/s girando en el lugar para buscar
+VEL_BUSQUEDA = 15     # deg/s girando en el lugar para buscar
 VEL_ACERCAMIENTO = 120  # mm/s avanzando hacia el objeto

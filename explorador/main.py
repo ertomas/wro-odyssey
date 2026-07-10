@@ -9,7 +9,7 @@
 #   cx        -> 0..100 (centro horizontal del objeto; 50 = centrado)
 #   area      -> 0..100 (tamano relativo del objeto = proxi de distancia)
 #
-# El explorador: (1) busca girando, (2) centra el objeto con la camara,
+# El explorador: (1) busca girando, (2) acentra el objeto con la camara,
 # (3) se acerca, (4) calcula la posicion (x, y) con su propia odometria y la
 # TRANSMITE por BLE al recuperador.
 #
@@ -65,9 +65,10 @@ def leer_camara():
     return clase, conf, cx, area
 
 
-# --- 1. Buscar el objeto girando despacio ---
+# --- 1. Buscar el objeto: primero avanzar, despues girar en el lugar ---
 hub.display.char("B")
 clase_detectada = config.CLASES_OBJETIVO[0]  # cual de las clases objetivo vimos
+robot.straight(config.AVANCE_INICIAL)  # avanzar en linea antes de empezar a buscar
 robot.drive(0, config.VEL_BUSQUEDA)  # girar en el lugar
 while True:
     clase, conf, cx, area = leer_camara()
@@ -106,12 +107,18 @@ while True:
     robot.drive(config.VEL_ACERCAMIENTO, error * config.KP_CENTRADO)
     wait(20)
 
-# --- 4. Fijar la posicion del objeto y transmitirla ---
+# --- 4. Fijar la posicion del objeto (todavia cerca, ANTES de retroceder) ---
+# Importante: calcular aca, con la pose en el punto de acercamiento. Si se calcula
+# despues del retroceso, la coordenada queda corrida hacia atras.
 rumbo = actualizar_pose()
 # El objeto esta justo delante; sumamos un offset en la direccion del rumbo.
 obj_x = int(x + config.OFFSET_OBJETO * cos(radians(rumbo)))
 obj_y = int(y + config.OFFSET_OBJETO * sin(radians(rumbo)))
 
+# --- 5. Liberar la zona: retroceder para no tapar el objeto al recuperador ---
+robot.straight(-config.RETROCESO_FINAL)
+
+# --- 6. Transmitir la coordenada del objeto ---
 hub.display.char("T")
 hub.speaker.beep()
 
