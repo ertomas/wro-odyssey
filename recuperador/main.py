@@ -3,10 +3,10 @@
 # ROBOT RECUPERADOR
 #
 # Escucha el canal BLE. Cuando el explorador le transmite la posicion del objeto
-# (x, y, clase), navega hasta ahi con su propia odometria, CONFIRMA con el
-# ultrasonido que el objeto quedo al alcance de la garra (y corrige el avance
-# final si hace falta), lo AGARRA (baja, cierra y lo levanta) y vuelve al origen
-# para soltarlo.
+# (x, y, clase), navega hasta ahi con su propia odometria, hace la APROXIMACION
+# FINAL despacio guiado por el ultrasonido (frena apenas el objeto entra en rango,
+# sin embestirlo), lo AGARRA (baja, cierra y lo levanta) y vuelve al origen para
+# soltarlo.
 #
 # HARDWARE:
 #   - Port.A / Port.B: ruedas (ver config).
@@ -27,13 +27,16 @@
 from pybricks.hubs import PrimeHub
 from pybricks.pupdevices import Motor, UltrasonicSensor
 from pybricks.robotics import DriveBase
+from pybricks.messaging import BLERadio
 from pybricks.tools import wait
 from umath import atan2, degrees, sqrt
 
 import config
 
-# El canal tiene que ser el mismo que transmite el explorador.
-hub = PrimeHub(observe_channels=[config.CANAL])
+hub = PrimeHub()
+# Mensajeria BLE (firmware nuevo): observar el canal que transmite el explorador.
+# El canal tiene que ser el MISMO que broadcastea el explorador.
+radio = BLERadio(observe_channels=[config.CANAL])
 
 motor_izq = Motor(config.PUERTO_MOTOR_IZQ, config.DIRECCION_MOTOR_IZQ)
 motor_der = Motor(config.PUERTO_MOTOR_DER, config.DIRECCION_MOTOR_DER)
@@ -56,13 +59,21 @@ hub.display.char("R")  # "R" de Recuperador (antes de mover motores: si se traba
 elevador.reset_angle(0)
 garra.run_until_stalled(config.GARRA_VELOCIDAD, duty_limit=config.GARRA_DUTY_LIMIT)  # abrir
 
-# --- 1. Esperar la coordenada del explorador ---
+# --- 1. Esperar una coordenada VALIDA del explorador ---
+# El explorador transmite una tupla (x, y, clase). Ignoramos cualquier otra cosa
+# que aparezca en el canal (p.ej. broadcasts de otro programa/hub) y seguimos
+# esperando, en vez de aceptar el primer dato y crashear.
 objetivo = None
 while objetivo is None:
-    objetivo = hub.ble.observe(config.CANAL)  # None si no oye nada hace ~1 s
+    datos = radio.observe(config.CANAL)  # None si no oye nada hace ~1 s
+    if isinstance(datos, (tuple, list)) and len(datos) == 3:
+        objetivo = datos
+    elif datos is not None:
+        print("BLE ignorado (no es coordenada):", datos)
     wait(50)
 
 tx, ty, clase = objetivo
+print("Objetivo recibido: x=%d y=%d clase=%d" % (tx, ty, clase))
 hub.speaker.beep()
 
 # --- 2. Pasar el objetivo al marco propio y navegar ---
@@ -76,33 +87,29 @@ robot.reset()
 rumbo = degrees(atan2(ty_local, tx_local))
 dist = sqrt(tx_local * tx_local + ty_local * ty_local)
 robot.turn(rumbo)
-robot.straight(dist)
 
-# --- 3. Confirmar con el ultrasonido y corregir el avance final ---
-# El objeto deberia leerse en ~DIST_AGARRE. Si esta un poco lejos/cerca, avanzamos
-# o retrocedemos en pasos chicos hasta entrar en rango. Acumulamos el avance real
-# en avance_total para poder volver exacto al origen despues.
-avance_total = dist
+# Acercarse rapido hasta MARGEN_APROXIMACION antes de la coordenada; el ultimo
+# tramo va DESPACIO y guiado por el sensor, para no embestir el objeto.
+avance_ciego = dist - config.MARGEN_APROXIMACION
+if avance_ciego < 0:
+    avance_ciego = 0
+robot.straight(avance_ciego)
+
+# --- 3. Aproximacion final guiada por el ultrasonido ---
+# Avanzar lento y frenar APENAS el objeto entra en rango de la garra
+# (d <= DIST_AGARRE + TOLERANCIA_AGARRE). Si no aparece en CREEP_MAX, se rinde
+# (no agarra) en vez de seguir de largo y llevarselo por delante.
 en_rango = False
-for intento in range(config.INTENTOS_AGARRE):
+robot.drive(config.VEL_APROXIMACION, 0)
+while robot.distance() < avance_ciego + config.CREEP_MAX:
     d = ultrasonido.distance()
-    print("Ultrasonido %d: %d mm" % (intento, d))
-    if d > config.DIST_SIN_OBJETO:         # no ve nada -> reintentar (puede ser ruido)
-        wait(100)
-        continue
-    error = d - config.DIST_AGARRE         # >0 objeto lejos, <0 objeto muy cerca
-    if abs(error) <= config.TOLERANCIA_AGARRE:
+    print("Ultrasonido: %d mm" % d)
+    if d <= config.DIST_AGARRE + config.TOLERANCIA_AGARRE:
         en_rango = True
         break
-    # Corregir avanzando (+) o retrocediendo (-), sin pasarse de PASO_CORRECCION.
-    paso = config.PASO_CORRECCION
-    if error < 0:
-        paso = -config.PASO_CORRECCION
-    if abs(error) < config.PASO_CORRECCION:
-        paso = error
-    robot.straight(paso)
-    avance_total += paso
-    wait(100)                              # dejar asentar la proxima lectura
+    wait(20)
+robot.stop()
+avance_total = robot.distance()  # cuanto avanzo en total, para volver al origen
 
 # --- 4. Agarrar solo si confirmamos el objeto en rango ---
 # Secuencia: ABRIR -> BAJAR -> CERRAR -> SOSTENER -> SUBIR. Se abre ANTES de bajar
