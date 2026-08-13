@@ -40,16 +40,23 @@ ELEVADOR_VELOCIDAD = 100      # deg/s
 ELEVADOR_ANGULO_ARRIBA = -90  # deg desde "abajo" (0) hasta "levantada"
                               # (si baja en vez de subir, invertir el signo)
 
-# --- Ultrasonido: confirma que el objeto esta al alcance de la garra (Port.E) ---
-# El sensor esta a ~7 cm del punto de agarre, asi que un objeto justo en la garra
-# se lee en ~DIST_AGARRE mm. Al llegar, si esta un poco lejos/cerca el robot se
-# acerca/aleja en pasos chicos hasta entrar en rango.
+# --- Ultrasonido + aproximacion final (Port.E) ---
+# El sensor esta a ~7 cm del punto de agarre: un objeto en la garra se lee en
+# ~DIST_AGARRE mm. Para NO embestir el objeto, el robot no maneja a ciegas hasta
+# la coordenada: frena MARGEN_APROXIMACION antes y hace el ultimo tramo DESPACIO
+# mirando el sensor, frenando apenas el objeto entra en rango.
+#
+# Con estos valores el tramo lento cubre la ventana [dist-300, dist+250] alrededor
+# de la coordenada recibida. El margen tiene que ser MAS GRANDE que el error radial
+# del explorador: si el explorador sobreestima la distancia y el margen es chico,
+# el robot embiste el objeto a velocidad de crucero ANTES de empezar a mirar el
+# sensor. Peor caso del tramo lento: 550 mm / 40 mm/s = ~14 s.
 PUERTO_ULTRASONIDO = Port.E
-DIST_AGARRE = 60          # mm: lectura esperada con el objeto en la garra
-TOLERANCIA_AGARRE = 15    # mm: dentro de esto se considera "en rango"
-DIST_SIN_OBJETO = 250     # mm: mas alla de esto se asume que no hay objeto
-PASO_CORRECCION = 20      # mm: correccion maxima de avance por intento
-INTENTOS_AGARRE = 5       # cuantas veces reintenta acercarse antes de rendirse
+DIST_AGARRE = 60           # mm: lectura esperada con el objeto en la garra
+TOLERANCIA_AGARRE = 20     # mm: frena cuando d <= DIST_AGARRE + esto (objeto en rango)
+MARGEN_APROXIMACION = 300  # mm antes de la coordenada donde deja de manejar a ciegas
+VEL_APROXIMACION = 40      # mm/s en la aproximacion final guiada por el sensor
+CREEP_MAX = 550            # mm max de avance lento buscando el objeto (si no aparece, se rinde)
 
 # --- Posicion de arranque respecto del explorador ---
 # Por defecto el recuperador arranca en el MISMO origen que el explorador
@@ -58,4 +65,4 @@ INTENTOS_AGARRE = 5       # cuantas veces reintenta acercarse antes de rendirse
 # compartido. En estos robots turn() positivo gira a la IZQUIERDA, asi que
 # "izquierda" = +y (ej.: 20 cm a la izquierda -> OFFSET_Y = 200).
 OFFSET_X = 0    # mm: adelante(+)/atras(-) respecto del explorador
-OFFSET_Y = -200    # mm: izquierda(+)/derecha(-) respecto del explorador
+OFFSET_Y = 165    # mm: izquierda(+)/derecha(-) respecto del explorador
