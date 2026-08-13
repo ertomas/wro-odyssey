@@ -50,6 +50,13 @@ en ambos a la vez para no cruzar señales.
 ### Qué muestra cada pantalla (para seguir la misión)
 
 **Explorador:** `B` busca → `C` centra → `A` se acerca → `T` transmite → `F` fin.
+
+> Entre `A` y `T` el explorador **se corre de costado** (retrocede un poco, gira 90° y
+> sale perpendicular). No es un error: si retrocediera en línea quedaría sobre el camino
+> del recuperador, y el ultrasonido del recuperador lo vería a **él** en vez del objeto.
+> Si el costado al que sale está bloqueado en tu cancha, invertí el signo de
+> `GIRO_DESPEJE` en `explorador/config.py`.
+
 **Recuperador:** `R` escuchando → (beep al recibir) → navega → `G` agarra (baja,
 cierra, levanta) → vuelve → `A` suelta → `F` fin. Si al llegar el ultrasonido no
 confirma el objeto: `X` + beep grave (no agarra).

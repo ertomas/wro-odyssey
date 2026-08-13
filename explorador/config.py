@@ -27,20 +27,51 @@ CLASES_OBJETIVO = (0, 1)
 CONFIANZA_MIN = 85    # % minimo de certeza para creerle a la prediccion
 
 # --- Centrado visual (donde queremos el objeto dentro de la imagen) ---
-CX_CENTRO = 50        # 50 = centro de la imagen
+CX_CENTRO = 40        # 50 = centro de la imagen
 CX_TOLERANCIA = 8     # margen aceptable alrededor del centro
 KP_CENTRADO = 1.5     # ganancia proporcional del giro al centrar
 
 # --- Acercamiento ---
-AREA_CERCA = 15       # "tamano" (0..100) al que frena. Si nunca frena, es que el
-                      # tamano real (visible en el telefono) no llega a este valor: bajalo.
-OFFSET_OBJETO = 150    # mm extra delante del robot donde queda el objeto
+# El criterio de "ya llegue" es cy (que tan abajo esta el objeto en el cuadro), NO
+# el area. El telefono va inclinado hacia abajo, asi que el objeto apoyado en el
+# piso baja en el cuadro de forma monotona a medida que te acercas, y eso no
+# depende de la luz ni de cuanto fondo del mismo tono haya. El area, si.
+# cy va de 0 (arriba del cuadro = lejos) a 100 (abajo del todo = encima).
+CY_CERCA = 80          # cy al que frena y fija la coordenada. CALIBRAR mirando el
+                       # numero "altura Y" en el telefono con el objeto a la distancia
+                       # a la que querras que frene. Subilo para acercarse mas.
+CY_PERDIDA_CERCA = 70  # si pierde el objeto habiendo llegado a este cy, se asume que
+                       # salio por el borde INFERIOR (lo tenemos encima) y da el
+                       # acercamiento por terminado en vez de salir a buscarlo.
+                       # Tiene que ser MENOR que CY_CERCA.
+AREA_MIN_VALIDO = 2    # area minima para creerle al blob (filtra manchas de ruido)
+OFFSET_OBJETO = 150    # mm extra delante del robot donde queda el objeto. CALIBRAR
+                       # junto con CY_CERCA: medir con regla cuanto queda entre el
+                       # centro del robot y el objeto cuando frena.
+
+# Ni cy ni el area alcanzan solos: pedimos varias lecturas seguidas Y haber
+# avanzado de verdad, para que una lectura alta suelta no fije la coordenada lejos.
+CONFIRMACIONES_CERCA = 3       # lecturas seguidas de cy >= CY_CERCA para creerle
+AVANCE_MIN_ACERCAMIENTO = 200  # mm que TIENE que avanzar antes de aceptar "ya estoy cerca".
+                               # Subilo si fija la coordenada demasiado lejos del objeto.
+PERDIDAS_MAX = 10              # lecturas seguidas sin objeto antes de frenar y volver a
+                               # buscar girando (a 20 ms por lectura, 10 = ~0.2 s)
+ACERCAMIENTO_MAX = 1500        # mm max de acercamiento: tope de seguridad para no quedarse
+                               # colgado si el cy nunca llega a CY_CERCA
+ACERCAMIENTO_TIMEOUT = 25000   # ms max en el paso de acercamiento (el otro tope de seguridad)
 
 # --- Busqueda ---
-AVANCE_INICIAL = 500  # mm que avanza en linea recta antes de empezar a girar a buscar
+AVANCE_INICIAL = 650  # mm que avanza en linea recta antes de empezar a girar a buscar
 
-# --- Final ---
-RETROCESO_FINAL = 500  # mm que retrocede tras transmitir, para liberar la zona del objeto
+# --- Final: despejar la zona del objeto ---
+# Retroceder EN LINEA dejaria al explorador sobre el camino origen->objeto, justo
+# por donde despues pasa el recuperador: su ultrasonido veria al EXPLORADOR en vez
+# del objeto, frenaria antes y cerraria la garra en el aire. Por eso el explorador
+# se corre de COSTADO: retroceso corto (para no rozar el objeto al pivotar), giro
+# y salida lateral. Misma maniobra que pruebas/test-ubicacion-explorador.py.
+RETROCESO_PREVIO = 150   # mm hacia atras antes de pivotar (para no rozar el objeto)
+GIRO_DESPEJE = 90        # grados hacia el costado LIBRE (invertir el signo si es el otro)
+DESPEJE_LATERAL = 500    # mm perpendiculares al camino del recuperador
 
 # --- Velocidades de maniobra ---
 VEL_BUSQUEDA = 15     # deg/s girando en el lugar para buscar

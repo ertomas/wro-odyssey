@@ -32,6 +32,65 @@ más preciso porque promedia el error.
 | Explorador | 56 | 113 | 2026-07-04 |
 | Recuperador | 56 | 160 | 2026-07-04 |
 
+## Inclinación del teléfono (explorador)
+
+**El teléfono va inclinado hacia abajo, no vertical.** Vertical mira al horizonte y el
+objeto se escapa por el borde inferior del cuadro justo cuando el robot está más cerca
+— que es exactamente donde tiene que fijar la coordenada. Además, el robot lo embiste.
+
+**Cómo elegir el ángulo:** inclinalo hasta que el borde **superior** del cuadro apenas
+siga mostrando el horizonte. Ese es el máximo útil: más inclinación no gana nada cerca
+y sí pierde alcance para buscar en el paso `B`. Con un FOV vertical típico de teléfono
+(~50°) eso cae cerca de los **25°**, y con la cámara a ~15 cm de altura te deja viendo
+desde unos 12 cm hasta el infinito.
+
+```
+    ANTES (vertical)              DESPUES (~25 grados)
+                                
+    [tel]|        objeto          [tel]\
+         |                              \
+         |                               v   objeto
+    -----+---------[#]---         --------[#]------------
+    se escapa por abajo           sigue en cuadro hasta el final
+```
+
+> Cada vez que cambien la inclinación o la altura del montaje hay que **recalibrar
+> `CX_CENTRO`, `CY_CERCA` y `OFFSET_OBJETO`**. Son los tres números que dependen de
+> la geometría de la cámara.
+
+## Acercamiento del explorador: `CY_CERCA` y sus guardas
+
+Solo en el explorador. El paso `A` se acerca al objeto y ahí fija la coordenada que
+transmite, así que **de qué tan cerca la fije depende toda la misión**: el resto del
+sistema hereda ese error.
+
+El criterio de frenado es `cy` (qué tan abajo está el objeto en el cuadro), no el
+`area`. El `area` cuenta *todos* los píxeles del tono, incluido el fondo, así que sube
+y baja con la luz; `cy` con la cámara inclinada baja de forma monótona al acercarse.
+
+- **`CY_CERCA`** (0–100, actual 80): el `cy` al que frena. **Cómo calibrarlo:** poné el
+  objeto a la distancia a la que querés que frene, mirá el número **«altura Y»** en la
+  pantalla del teléfono y ese valor va acá. Subilo para que se acerque más.
+- **`OFFSET_OBJETO`** (mm, actual 150): cuánto hay entre el centro del robot y el objeto
+  cuando frena. Medilo con regla **después** de fijar `CY_CERCA`. Ahora que el frenado
+  es repetible, este número por fin se puede medir una vez y queda bien.
+- **`CY_PERDIDA_CERCA`** (0–100, actual 70): si pierde el objeto habiendo llegado a este
+  `cy`, asume que se fue por el borde inferior porque lo tiene encima, y da el
+  acercamiento por terminado. Tiene que ser **menor** que `CY_CERCA`. Bajalo si el
+  explorador sale a buscar de nuevo cuando en realidad ya había llegado.
+- **`AREA_MIN_VALIDO`** (0–100, actual 2): área mínima para creerle al blob. Filtra
+  manchas de ruido del mismo tono. Subilo si el explorador reacciona a reflejos.
+- **`AVANCE_MIN_ACERCAMIENTO`** (mm, actual 200): cuánto tiene que avanzar como mínimo
+  antes de aceptar "ya estoy cerca". Subilo si fija la coordenada demasiado lejos.
+- **`CONFIRMACIONES_CERCA`** (actual 3): lecturas seguidas con `cy >= CY_CERCA` antes
+  de frenar. Filtra los picos de un cuadro suelto.
+- **`PERDIDAS_MAX`** (actual 10): lecturas seguidas sin ver el objeto antes de decidir
+  qué hacer. A 20 ms por lectura, 10 ≈ 0.2 s. **El robot frena en la primera pérdida**,
+  siempre: perder el objeto es justamente lo que pasa cuando lo tenés encima.
+- **`ACERCAMIENTO_MAX`** (mm, actual 1500) y **`ACERCAMIENTO_TIMEOUT`** (ms, actual
+  25000): topes de seguridad. Si el explorador corta siempre por acá en vez de por
+  confirmación, es que `CY_CERCA` está demasiado alto y nunca se alcanza.
+
 ## Garra: `GARRA_DUTY_LIMIT`, `GARRA_VELOCIDAD` y `GARRA_DUTY_SOSTEN`
 
 Solo en el recuperador (Port.C). La garra cierra con
@@ -69,15 +128,30 @@ termina abajo; sube sólo después de agarrar el objeto.
 > cero. Si el elevador se traba al arrancar, casi siempre es el **signo** del
 > ángulo (está empujando contra el tope).
 
-## Ultrasonido: `DIST_AGARRE` y compañía
+## Ultrasonido y aproximación final: `DIST_AGARRE` y compañía
 
-Solo en el recuperador (Port.E), montado a **~7 cm del punto de agarre**. Al llegar
-al objetivo confirma que el objeto quedó al alcance y corrige el avance final.
+Solo en el recuperador (Port.E), montado a **~7 cm del punto de agarre**. Para no
+embestir el objeto, el robot **no maneja a ciegas** hasta la coordenada: frena un
+margen antes y hace el último tramo **despacio mirando el sensor**, deteniéndose
+apenas el objeto entra en rango.
 
 - **`DIST_AGARRE`** (mm, actual 60): lectura esperada con el objeto en la garra.
   Poné el objeto agarrado y mirá qué lee el sensor (aparece en la terminal como
-  `Ultrasonido N: … mm`); ese número va acá.
-- **`TOLERANCIA_AGARRE`** (mm, actual 15): margen para dar por bueno el rango.
-- **`DIST_SIN_OBJETO`** (mm, actual 250): más lejos que esto = "no hay objeto".
-- **`PASO_CORRECCION`** (mm, actual 20) e **`INTENTOS_AGARRE`** (actual 5): cuánto
-  avanza por intento y cuántas veces reintenta acercarse antes de rendirse.
+  `Ultrasonido: … mm`); ese número va acá.
+- **`TOLERANCIA_AGARRE`** (mm, actual 20): frena cuando `d <= DIST_AGARRE + esto`.
+  Subilo si frena demasiado lejos; bajalo si igual lo toca antes de frenar.
+- **`MARGEN_APROXIMACION`** (mm, actual 300): cuánto antes de la coordenada deja de
+  ir rápido y arranca la aproximación lenta. Subilo si la coordenada de la cámara
+  es imprecisa (frena antes y se acerca más lento pero más seguro). Tiene que ser
+  **más grande que el error radial del explorador**: si el explorador sobreestima la
+  distancia y este margen es chico, el robot embiste el objeto a velocidad de
+  crucero antes de empezar a mirar el sensor.
+- **`VEL_APROXIMACION`** (mm/s, actual 40): velocidad del tramo final. Más lento =
+  frena más justo, menos chance de pasarse.
+- **`CREEP_MAX`** (mm, actual 550): cuánto avanza lento como máximo buscando el
+  objeto. Si no lo detecta en esa distancia, se rinde (muestra `X`) en vez de
+  seguir de largo.
+
+> Con estos tres valores el tramo lento cubre la ventana `[dist-300, dist+250]`
+> alrededor de la coordenada recibida, y en el peor caso tarda `550 / 40 ≈ 14 s`.
+> Si el reloj de la misión aprieta, lo primero a recortar es `CREEP_MAX`.

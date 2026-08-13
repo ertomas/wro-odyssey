@@ -113,6 +113,11 @@
       position: absolute; top: 0; bottom: 0; width: 2px;
       background: var(--naranja); pointer-events: none; left: 50%;
     }
+    /* Linea del borde inferior del blob = donde el objeto toca el piso. */
+    .cy-marker {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: #38bdf8; pointer-events: none; top: 50%;
+    }
     .cam-hint {
       position: absolute; inset: 0; display: flex; align-items: center;
       justify-content: center; color: #94a3b8; font-size: 0.9rem; text-align: center; padding: 16px;
@@ -122,7 +127,7 @@
     .pred-name { font-size: 1.25rem; font-weight: 700; }
     .barra { height: 8px; background: #f1f5f9; border-radius: 999px; overflow: hidden; margin-top: 4px; }
     .barra > div { height: 100%; background: var(--verde); width: 0%; transition: width 0.15s; }
-    .metricas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: center; margin: 16px 0; }
+    .metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin: 16px 0; }
     .metrica { background: #f8fafc; border-radius: 8px; padding: 8px; }
     .metrica .valor { font-size: 1.1rem; font-weight: 700; }
     .metrica .etq { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
@@ -200,6 +205,7 @@
         <video id="video" playsinline autoplay muted></video>
         <div class="mira"><div></div></div>
         <div id="cx-marker" class="cx-marker hidden"></div>
+        <div id="cy-marker" class="cy-marker hidden"></div>
         <div id="cam-hint" class="cam-hint">Tocá «Encender cámara» para empezar</div>
       </div>
 
@@ -212,6 +218,7 @@
         </div>
         <div class="metricas">
           <div class="metrica"><div id="val-cx" class="valor mono">—</div><div class="etq">centro X</div></div>
+          <div class="metrica"><div id="val-cy" class="valor mono">—</div><div class="etq">altura Y</div></div>
           <div class="metrica"><div id="val-area" class="valor mono">—</div><div class="etq">tamaño</div></div>
         </div>
         <div class="acciones">
@@ -244,10 +251,15 @@
 
     <div class="aviso naranja">
       <p><b>💡 Qué le llega al hub</b></p>
-      <p>4 bytes: <b>clase</b> (qué objeto, índice del modelo), <b>confianza</b> (0-100),
-         <b>cx</b> (centro horizontal, 50 = centrado) y <b>tamaño</b> (0-100, más grande = más cerca).
-         El reconocimiento lo hace Teachable Machine; el <b>cx</b> y el <b>tamaño</b> salen del color que fijaste.
+      <p>5 bytes: <b>clase</b> (qué objeto, índice del modelo), <b>confianza</b> (0-100),
+         <b>cx</b> (centro horizontal, 50 = centrado), <b>tamaño</b> (0-100) y
+         <b>cy</b> (altura del borde inferior del objeto, 0 = arriba del cuadro, 100 = abajo del todo).
+         El reconocimiento lo hace Teachable Machine; <b>cx</b>, <b>cy</b> y <b>tamaño</b> salen del color que fijaste.
          El contrato completo está en <code>docs/contrato-datos.md</code>.</p>
+      <p style="margin:8px 0 0;"><b>El teléfono va inclinado hacia abajo.</b> Con la cámara mirando al
+         horizonte el objeto se escapa por el borde inferior justo cuando el robot está más cerca.
+         Inclinalo hasta que el borde superior del cuadro <b>apenas siga mostrando el horizonte</b>:
+         más que eso y perdés alcance para buscar. La línea celeste marca el <b>cy</b> que se envía.</p>
     </div>
 
   </div>
@@ -335,6 +347,8 @@
   const PREDICT_INTERVAL_MS = 150; // correr el modelo ~7 veces por segundo
   const HUE_TOL = 22;              // tolerancia de tono para el blob (grados)
   const SAT_MIN = 30;              // saturación mínima para contar un píxel
+  const MIN_PIX_FILA = 2;          // píxeles mínimos en una fila para tomarla como
+                                   // borde inferior del blob (evita el píxel suelto)
 
   const hub = new PybricksHub();
   let cameraOn = false;
@@ -342,7 +356,7 @@
   let sendTimer = null;
   let model = null;
   let targetHue = null;            // tono del objeto (calibrado)
-  let lastData = [0, 0, 50, 0];    // [clase, confianza, cx, area]
+  let lastData = [0, 0, 50, 0, 0]; // [clase, confianza, cx, area, cy]
 
   const $ = (id) => document.getElementById(id);
   const video = $('video');
@@ -460,6 +474,7 @@
     const [h] = rgbToHsv(r / n, g / n, b / n);
     targetHue = h;
     $('cx-marker').classList.remove('hidden');
+    $('cy-marker').classList.remove('hidden');
     log('Color del objeto fijado: tono ' + Math.round(h) + '°');
   });
 
@@ -469,30 +484,54 @@
     return d > 180 ? 360 - d : d;
   }
 
-  // ── Loop del blob: calcula cx y area del color objetivo ──────────────
+  // Recorte cuadrado central del video: EL MISMO que muestra el <video> con
+  // object-fit:cover. Antes se muestreaba el cuadro completo sin recortar, así que
+  // lo que veías en pantalla y lo que se mandaba al hub no eran el mismo encuadre.
+  function cropCuadrado() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const lado = Math.min(vw, vh);
+    return { sx: (vw - lado) / 2, sy: (vh - lado) / 2, lado };
+  }
+
+  // ── Loop del blob: calcula cx, cy y area del color objetivo ──────────
   function blobLoop() {
     if (!cameraOn) return;
     if (video.videoWidth && targetHue !== null) {
       const W = sampler.width, H = sampler.height;
-      sctx.drawImage(video, 0, 0, W, H);
+      const { sx, sy, lado } = cropCuadrado();
+      sctx.drawImage(video, sx, sy, lado, lado, 0, 0, W, H);
       const { data } = sctx.getImageData(0, 0, W, H);
       let sumX = 0, count = 0;
+      const porFila = new Array(H).fill(0);
       for (let p = 0; p < data.length; p += 4) {
         const [h, s, v] = rgbToHsv(data[p], data[p + 1], data[p + 2]);
         if (s >= SAT_MIN && v >= 15 && hueDist(h, targetHue) <= HUE_TOL) {
-          sumX += (p / 4) % W; count++;
+          const i = p / 4;
+          sumX += i % W;
+          porFila[(i / W) | 0]++;
+          count++;
         }
       }
-      let cx = 50, area = 0;
+      let cx = 50, area = 0, cy = 0;
       if (count > 0) {
         cx = Math.round((sumX / count) / W * 100);
         area = Math.min(100, Math.round((count / (W * H)) * 100));
+        // cy = borde INFERIOR del blob = donde el objeto toca el piso. Con la
+        // cámara inclinada hacia abajo ese punto baja en el cuadro de forma
+        // monótona al acercarse, así que es mejor proxy de distancia que el área
+        // (no depende de la luz ni de cuánto fondo del mismo tono haya).
+        for (let f = H - 1; f >= 0; f--) {
+          if (porFila[f] >= MIN_PIX_FILA) { cy = Math.round((f / (H - 1)) * 100); break; }
+        }
       }
       lastData[2] = cx;
       lastData[3] = area;
+      lastData[4] = cy;
       $('val-cx').textContent = String(cx);
+      $('val-cy').textContent = String(cy);
       $('val-area').textContent = String(area);
       $('cx-marker').style.left = cx + '%';
+      $('cy-marker').style.top = cy + '%';
     }
     requestAnimationFrame(blobLoop);
   }
@@ -571,12 +610,14 @@
 
   async function sendData() {
     if (!hub.connected) return;
-    // 4 bytes: clase, confianza, cx, area.
+    // 5 bytes: clase, confianza, cx, area, cy. El explorador los lee con
+    // AppData([(0, 5)]) — si cambiás la cantidad, cambiala en los DOS lados.
     const bytes = [
       Math.min(255, lastData[0]),
       Math.min(100, lastData[1]),
       Math.min(100, lastData[2]),
       Math.min(100, lastData[3]),
+      Math.min(100, lastData[4]),
     ];
     try {
       await hub.sendAppData(bytes);

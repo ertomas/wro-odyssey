@@ -9,12 +9,12 @@ estos formatos, tenés que cambiarlo en los **dos** lados a la vez.
 
 ## 1. Teléfono → Explorador (AppData)
 
-El teléfono (página Teachable Machine) manda **4 bytes** en el modo 0.
+El teléfono (página Teachable Machine) manda **5 bytes** en el modo 0.
 En el explorador se leen con `app.get_bytes(mode=0)`.
 
 ```python
-app = AppData([(0, 4)])
-clase, confianza, cx, area = app.get_bytes(mode=0)
+app = AppData([(0, 5)])
+clase, confianza, cx, area, cy = app.get_bytes(mode=0)
 ```
 
 | byte | dato | rango | significado |
@@ -22,10 +22,27 @@ clase, confianza, cx, area = app.get_bytes(mode=0)
 | 0 | `clase` | 0–255 | índice de la categoría del modelo (0 = primera clase) |
 | 1 | `confianza` | 0–100 | % de certeza de la predicción |
 | 2 | `cx` | 0–100 | centro horizontal del objeto, % desde la izquierda (**50 = centrado**) |
-| 3 | `area` | 0–100 | tamaño relativo del objeto (más grande = más cerca) |
+| 3 | `area` | 0–100 | tamaño relativo del objeto |
+| 4 | `cy` | 0–100 | altura del borde **inferior** del objeto (**0 = arriba/lejos, 100 = abajo/encima**) |
 
 > Teachable Machine dice **qué** objeto es (clase + confianza). El **dónde**
-> (`cx`, `area`) lo calcula la página a partir del blob de color del objeto.
+> (`cx`, `cy`, `area`) lo calcula la página a partir del blob de color del objeto.
+
+### Por qué `cy` y no `area`
+
+El teléfono va **inclinado hacia abajo**, no mirando al horizonte. Con eso, un
+objeto apoyado en el piso **baja en el cuadro de forma monótona** a medida que el
+robot se acerca, así que `cy` es un proxy de distancia confiable: no lo afecta la
+luz ni cuánto fondo del mismo tono haya en el cuadro. El `area` sí, y por eso el
+explorador ya no la usa como criterio de frenado (solo como filtro de ruido).
+
+`cy` es el **borde inferior** del blob, no su centro: ese es el punto donde el
+objeto toca el piso, que es lo que se relaciona con la distancia. Se toma la fila
+más baja con al menos 2 píxeles del tono, para no engancharse con un píxel suelto.
+
+Los dos números se calculan sobre el **recorte cuadrado central** del video — el
+mismo encuadre que se ve en pantalla. Si cambiás la inclinación o la altura del
+teléfono, hay que recalibrar `CX_CENTRO` y `CY_CERCA` en `explorador/config.py`.
 
 ## 2. Explorador → Recuperador (broadcast BLE)
 
