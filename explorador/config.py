@@ -24,7 +24,7 @@ AXLE_TRACK = 113      # mm  -> distancia entre las dos ruedas
 # El modelo incluido tiene: 0=egipto, 1=Panama, 2=Suelo. Vale CUALQUIERA de la
 # lista (ej.: (0, 1) = egipto o Panama). Para una sola clase, dejar (1,).
 CLASES_OBJETIVO = (0, 1)
-CONFIANZA_MIN = 85    # % minimo de certeza para creerle a la prediccion
+CONFIANZA_MIN = 60    # % minimo de certeza para creerle a la prediccion
 
 # --- Centrado visual (donde queremos el objeto dentro de la imagen) ---
 CX_CENTRO = 40        # 50 = centro de la imagen
