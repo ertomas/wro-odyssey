@@ -215,6 +215,7 @@
           <div id="pred-name" class="pred-name">—</div>
           <div class="barra"><div id="pred-bar"></div></div>
           <div id="pred-conf" class="muted mono" style="margin-top:4px;">confianza —</div>
+          <div id="pred-todas" class="muted mono" style="margin-top:2px; font-size:0.75rem;">—</div>
         </div>
         <div class="metricas">
           <div class="metrica"><div id="val-cx" class="valor mono">—</div><div class="etq">centro X</div></div>
@@ -349,6 +350,9 @@
   const SAT_MIN = 30;              // saturación mínima para contar un píxel
   const MIN_PIX_FILA = 2;          // píxeles mínimos en una fila para tomarla como
                                    // borde inferior del blob (evita el píxel suelto)
+  const MODEL_SIZE = 224;          // entrada del modelo (imageSize de metadata.json)
+  const MARGEN_CROP = 0.6;         // margen alrededor del blob al recortar para el modelo
+  const MIN_CROP_FRAC = 0.25;      // el recorte nunca baja de este % del lado del video
 
   const hub = new PybricksHub();
   let cameraOn = false;
@@ -356,6 +360,7 @@
   let sendTimer = null;
   let model = null;
   let targetHue = null;            // tono del objeto (calibrado)
+  let blobBox = null;              // caja del blob en coords del video, o null si no hay
   let lastData = [0, 0, 50, 0, 0]; // [clase, confianza, cx, area, cy]
 
   const $ = (id) => document.getElementById(id);
@@ -363,6 +368,11 @@
   const sampler = document.createElement('canvas');
   sampler.width = 64; sampler.height = 64;
   const sctx = sampler.getContext('2d', { willReadFrequently: true });
+
+  // Canvas aparte con el recorte que se le da al modelo (ver recorteParaModelo).
+  const modelCanvas = document.createElement('canvas');
+  modelCanvas.width = MODEL_SIZE; modelCanvas.height = MODEL_SIZE;
+  const mctx = modelCanvas.getContext('2d');
 
   function log(msg) {
     const el = $('log');
@@ -502,17 +512,35 @@
       sctx.drawImage(video, sx, sy, lado, lado, 0, 0, W, H);
       const { data } = sctx.getImageData(0, 0, W, H);
       let sumX = 0, count = 0;
+      let minX = W, maxX = -1, minY = H, maxY = -1;
       const porFila = new Array(H).fill(0);
       for (let p = 0; p < data.length; p += 4) {
         const [h, s, v] = rgbToHsv(data[p], data[p + 1], data[p + 2]);
         if (s >= SAT_MIN && v >= 15 && hueDist(h, targetHue) <= HUE_TOL) {
           const i = p / 4;
-          sumX += i % W;
-          porFila[(i / W) | 0]++;
+          const col = i % W, fil = (i / W) | 0;
+          sumX += col;
+          porFila[fil]++;
+          if (col < minX) minX = col;
+          if (col > maxX) maxX = col;
+          if (fil < minY) minY = fil;
+          if (fil > maxY) maxY = fil;
           count++;
         }
       }
       let cx = 50, area = 0, cy = 0;
+      // Caja del blob en coordenadas del VIDEO, para recortarle la entrada al modelo.
+      if (count > 0) {
+        const escala = lado / W;   // el recorte es cuadrado, W === H
+        blobBox = {
+          x: sx + minX * escala,
+          y: sy + minY * escala,
+          w: (maxX - minX + 1) * escala,
+          h: (maxY - minY + 1) * escala,
+        };
+      } else {
+        blobBox = null;
+      }
       if (count > 0) {
         cx = Math.round((sumX / count) / W * 100);
         area = Math.min(100, Math.round((count / (W * H)) * 100));
@@ -536,11 +564,32 @@
     requestAnimationFrame(blobLoop);
   }
 
+  // Qué pedazo del video se le da al modelo. Con la cámara inclinada hacia abajo el
+  // cuadro entero está dominado por el piso, así que el modelo contesta "Suelo" aunque
+  // el objeto esté ahí. El blob ya sabe DÓNDE está, así que le recortamos un cuadrado
+  // alrededor: el modelo ve el objeto llenando la imagen, que es como fue entrenado.
+  // Sin blob todavía (antes de fijar el color) cae al recorte cuadrado central.
+  function recorteParaModelo() {
+    const base = cropCuadrado();
+    if (!blobBox) return base;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const centroX = blobBox.x + blobBox.w / 2;
+    const centroY = blobBox.y + blobBox.h / 2;
+    let l = Math.max(blobBox.w, blobBox.h) * (1 + MARGEN_CROP);
+    l = Math.max(l, Math.min(vw, vh) * MIN_CROP_FRAC);   // no recortar tan chico que sea ruido
+    l = Math.min(l, vw, vh);
+    const x = Math.max(0, Math.min(centroX - l / 2, vw - l));
+    const y = Math.max(0, Math.min(centroY - l / 2, vh - l));
+    return { sx: x, sy: y, lado: l };
+  }
+
   // ── Loop del modelo: clase + confianza ───────────────────────────────
   async function predictLoop() {
     if (model && cameraOn && video.videoWidth) {
       try {
-        const preds = await model.predict(video);
+        const r = recorteParaModelo();
+        mctx.drawImage(video, r.sx, r.sy, r.lado, r.lado, 0, 0, MODEL_SIZE, MODEL_SIZE);
+        const preds = await model.predict(modelCanvas);
         let best = 0;
         for (let i = 1; i < preds.length; i++) {
           if (preds[i].probability > preds[best].probability) best = i;
@@ -551,6 +600,11 @@
         $('pred-name').textContent = preds[best].className;
         $('pred-bar').style.width = conf + '%';
         $('pred-conf').textContent = 'confianza ' + conf + '% · clase ' + best;
+        // Todas las clases: si el objeto no se detecta, acá se ve contra qué está
+        // perdiendo (normalmente "Suelo") sin tener que adivinar.
+        $('pred-todas').textContent = preds
+          .map((p) => p.className + ' ' + Math.round(p.probability * 100) + '%')
+          .join(' · ');
       } catch (err) {
         log('Error de predicción: ' + err.message);
       }
