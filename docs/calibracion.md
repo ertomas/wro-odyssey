@@ -38,11 +38,12 @@ más preciso porque promedia el error.
 objeto se escapa por el borde inferior del cuadro justo cuando el robot está más cerca
 — que es exactamente donde tiene que fijar la coordenada. Además, el robot lo embiste.
 
-**Cómo elegir el ángulo:** inclinalo hasta que el borde **superior** del cuadro apenas
-siga mostrando el horizonte. Ese es el máximo útil: más inclinación no gana nada cerca
-y sí pierde alcance para buscar en el paso `B`. Con un FOV vertical típico de teléfono
-(~50°) eso cae cerca de los **25°**, y con la cámara a ~15 cm de altura te deja viendo
-desde unos 12 cm hasta el infinito.
+**Cómo elegir el ángulo:** el criterio no es un número de grados, es que el suelo
+visible **llegue más allá del borde lejano de la pista**, sin gastar cuadro en lo que
+hay más allá. Como la pista no es grande, con poca inclinación alcanza.
+
+**En este robot son ~15°**, que es lo máximo que permite la construcción, y es
+suficiente: corta el horizonte dentro de la pista. No hace falta más.
 
 ```
     ANTES (vertical)              DESPUES (~25 grados)
@@ -74,6 +75,12 @@ y baja con la luz; `cy` con la cámara inclinada baja de forma monótona al acer
 - **`OFFSET_OBJETO`** (mm, actual 150): cuánto hay entre el centro del robot y el objeto
   cuando frena. Medilo con regla **después** de fijar `CY_CERCA`. Ahora que el frenado
   es repetible, este número por fin se puede medir una vez y queda bien.
+
+> **Con poca inclinación (15°), `cy` sube más despacio con la distancia.** Un mismo
+> `CY_CERCA` frena **más lejos** que con la cámara más inclinada, así que el `150` de
+> `OFFSET_OBJETO` casi seguro se queda corto: mídanlo, no lo asuman. Y como el rango
+> útil de `cy` se comprime, conviene tomar los valores de la pantalla en vez de
+> estimarlos — la relación `cy`↔distancia no es lineal.
 - **`CY_PERDIDA_CERCA`** (0–100, actual 70): si pierde el objeto habiendo llegado a este
   `cy`, asume que se fue por el borde inferior porque lo tiene encima, y da el
   acercamiento por terminado. Tiene que ser **menor** que `CY_CERCA`. Bajalo si el
