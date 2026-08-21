@@ -19,8 +19,11 @@ PUERTO_MOTOR_DER = Port.A
 DIRECCION_MOTOR_IZQ = Direction.COUNTERCLOCKWISE  # el izquierdo suele ir invertido
 DIRECCION_MOTOR_DER = Direction.CLOCKWISE
 
-WHEEL_DIAMETER = 56   # mm  -> medir y calibrar (ver docs/calibracion.md)
-AXLE_TRACK = 160      # mm  -> distancia entre las dos ruedas
+WHEEL_DIAMETER = 56   # mm  -> calibrado 2026-08-20 (800 pedidos -> 798 reales)
+AXLE_TRACK = 164      # mm  -> calibrado 2026-08-20 con el ensayo de 3 vueltas.
+                      # NO es la medida con regla (esa da 161): al pivotar los
+                      # neumaticos restriegan y hay que declarar un track mayor
+                      # para compensar. Ver docs/calibracion.md.
 
 # --- Garra: motor que ABRE/CIERRA la pinza (Port.C) ---
 # OJO: en ESTE robot la pinza ABRE con velocidad + y CIERRA con velocidad -

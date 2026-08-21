@@ -18,9 +18,42 @@ También podés medir el diámetro directo con una regla, pero calibrar con 1 m 
 más preciso porque promedia el error.
 
 ### `AXLE_TRACK` (distancia entre ruedas, en mm)
-1. Poné `robot.turn(360)` (una vuelta completa).
-2. Si giró de más, **subí** `AXLE_TRACK`; si giró de menos, **bajalo**.
-3. Repetí hasta que 360° sea una vuelta exacta.
+
+> ⚠️ **No lo midas con regla y lo des por terminado.** Nominalmente es la
+> separación entre las ruedas, pero funciona como una **perilla de calibración**,
+> no como una medida. Al pivotar, los neumáticos restriegan de costado: ese
+> patinaje hace que el robot rote **menos** de lo que la geometría predice, y se
+> compensa declarando un track **más grande que el real**. Sumale que el punto de
+> contacto efectivo de un neumático ancho no está en su centro geométrico.
+> Resultado: **el valor calibrado casi siempre es mayor que el medido** (en el
+> recuperador, 161 mm medidos → ~165 calibrados). Medí con regla para tener un
+> punto de partida, y después **confiá en el comportamiento, no en la regla**.
+
+`DriveBase` calcula cuánto rotar las ruedas a partir del `AXLE_TRACK` que le
+declarás. Si le decís que están **más separadas** de lo que están, calcula un
+arco más largo y el robot **rota de más**:
+
+```
+giro_real = giro_pedido × (AXLE_TRACK declarado / separación real)
+```
+
+O sea: **subir `AXLE_TRACK` → gira MÁS. Bajarlo → gira MENOS.**
+
+1. Calibrá `WHEEL_DIAMETER` **primero**: el giro se apoya en él.
+2. Pedí **varias vueltas** (`robot.turn(1080)` = 3 vueltas), no una sola. El error
+   de una vuelta suele ser demasiado chico para medirlo a ojo; con 3 se
+   triplica y lo ves claro. Marcá el frente del robot con una línea en el piso.
+3. Estimá cuántos grados giró **de verdad** en total (ej.: le faltó media vuelta
+   de 1080 → giró 900).
+4. Ajustá:  `nuevo = actual × (grados_pedidos / grados_reales)`
+   - Giró de **menos** → **subí** `AXLE_TRACK`.
+   - Giró de **más** → **bajalo**.
+5. Repetí hasta que vuelva a la línea.
+
+> Este número importa más que el diámetro: el error de giro es **angular** y se
+> abre con la distancia. 2° de error son ~35 mm de desvío lateral a un metro, y
+> el desvío lateral es el que la misión no perdona (el ultrasonido corrige de
+> más o de menos, pero si el robot pasa de costado al objeto no lo ve nunca).
 
 > Valores de arranque en los `config.py`: `WHEEL_DIAMETER = 56`, `AXLE_TRACK = 112`.
 > Son un punto de partida típico de SPIKE Prime; **hay que calibrarlos igual**.
@@ -30,7 +63,12 @@ más preciso porque promedia el error.
 | Robot | WHEEL_DIAMETER | AXLE_TRACK | Fecha |
 |-------|----------------|------------|-------|
 | Explorador | 56 | 113 | 2026-07-04 |
-| Recuperador | 56 | 160 | 2026-07-04 |
+| Recuperador | 56 | 164 | 2026-08-20 |
+
+> Recuperador (2026-08-20): recta 800 mm pedidos → 798 reales, dentro de
+> tolerancia, `WHEEL_DIAMETER` sin cambios. `AXLE_TRACK` por ensayo de 3 vueltas:
+> 164 (la regla da 161 — ver la advertencia de arriba). Calibrado en piso duro,
+> **no** en la lona de competencia: verificar con una corrida cuando esté la pista.
 
 ## Inclinación del teléfono (explorador)
 
