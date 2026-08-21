@@ -172,13 +172,44 @@ while True:
             robot.drive(0, config.VEL_BUSQUEDA)   # perdida real: re-buscar girando
     wait(20)
 
+# --- 3b. Centrar el objeto ANTES de fijar la coordenada ---
+# El paso 3 frena mirando SOLO cy: cx no entra en la condicion, asi que el robot
+# puede frenar a mitad de una correccion y quedar apuntando al costado. Como la
+# coordenada se proyecta en la direccion del RUMBO, ese desvio la manda a un punto
+# que no es donde esta el objeto.
+#
+# No se agrega cx a la condicion de frenado porque las dos podrian no cumplirse
+# nunca a la vez y siempre cortaria por el tope de seguridad. En vez de eso:
+# frenamos por cy y despues giramos EN EL LUGAR hasta centrar.
+#
+# Si el objeto ya no se ve, no hay nada que centrar: se salteo porque se fue por
+# el borde inferior (lo tenemos encima), que es un final valido del paso 3.
+reloj_centrado = StopWatch()
+while reloj_centrado.time() < config.CENTRADO_FINAL_TIMEOUT:
+    clase, conf, cx, area, cy = leer_camara()
+    actualizar_pose()
+    if not objeto_visible(clase, conf, area):
+        break
+    error = cx - config.CX_CENTRO
+    if abs(error) <= config.CX_TOLERANCIA:
+        break
+    robot.drive(0, error * config.KP_CENTRADO)
+    wait(20)
+robot.stop()
+
 # --- 4. Fijar la posicion del objeto (todavia cerca, ANTES de despejar) ---
 # Importante: calcular aca, con la pose en el punto de acercamiento. Si se calcula
 # despues de la maniobra de despeje, la coordenada queda corrida.
 rumbo = actualizar_pose()
-# El objeto esta justo delante; sumamos un offset en la direccion del rumbo.
-obj_x = int(x + config.OFFSET_OBJETO * cos(radians(rumbo)))
-obj_y = int(y + config.OFFSET_OBJETO * sin(radians(rumbo)))
+# El objeto NO esta necesariamente justo delante: la camara no esta en la linea
+# media del robot, asi que al "centrar" queda corrido al costado. Sumamos las dos
+# componentes en el marco del robot:
+#   adelante = (cos rumbo, sin rumbo)
+#   derecha  = (-sin rumbo, cos rumbo)   <- +y es la derecha fisica
+_adelante = config.OFFSET_OBJETO
+_costado = config.OFFSET_OBJETO_LATERAL  # derecha(+) / izquierda(-)
+obj_x = int(x + _adelante * cos(radians(rumbo)) - _costado * sin(radians(rumbo)))
+obj_y = int(y + _adelante * sin(radians(rumbo)) + _costado * cos(radians(rumbo)))
 
 # --- 5. Liberar la zona: salir de COSTADO del camino del recuperador ---
 # El recuperador viaja del origen al objeto en linea recta. Retroceder dejaria al

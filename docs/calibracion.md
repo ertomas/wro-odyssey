@@ -131,6 +131,42 @@ y baja con la luz; `cy` con la cámara inclinada baja de forma monótona al acer
   > odometría está referida a ese punto (ver [`setup-cancha.md`](setup-cancha.md)).
   > Medir desde el frente te deja la coordenada corta por el voladizo del chasis
   > —fácilmente 5-8 cm— y ese error se traslada tal cual al recuperador.
+  >
+  > Es la **componente sobre el rumbo**, no la distancia directa al objeto: el
+  > código descompone la posición en dos términos perpendiculares (`OFFSET_OBJETO`
+  > adelante y `OFFSET_OBJETO_LATERAL` al costado). Si medís la diagonal, el número
+  > queda largo.
+  >
+  > **Medido el 2026-08-20** con [`../pruebas/test-acercamiento.py`](../pruebas/test-acercamiento.py):
+  > 150 mm adelante, con el centrado final ya aplicado.
+
+- **`OFFSET_OBJETO_LATERAL`** (mm, actual **−65**): cuánto queda el objeto corrido
+  **al costado** de la línea media del robot cuando frena. Derecha (+) / izquierda (−).
+
+  **Medido el 2026-08-20:** 65 mm a la izquierda, consistente entre corridas y
+  alineado con la cámara. Que el valor medido coincida con el montaje físico
+  confirma dos cosas: que `cx = 50` es el eje óptico real, y que la página **no
+  espeja** la imagen (si lo hiciera, el desvío daría para el otro lado).
+
+  **No es cero.** La cámara **no está en la línea media**: en este robot está
+  ~65 mm a la izquierda, casi sobre la rueda. El centrado alinea el objeto con el
+  eje óptico de la cámara, no con el centro del robot, así que al frenar el objeto
+  queda corrido — y el cálculo de la coordenada lo daba por "justo adelante".
+
+  65 mm de error lateral es mucho: el cono del ultrasonido del recuperador a
+  150 mm cubre menos que eso a cada lado, y la ventana lateral de la garra es más
+  chica todavía.
+
+  > **Medilo, no lo calcules.** Se mezclan el offset físico de la cámara y si la
+  > página espeja la imagen. En el punto de frenado se suman en **una sola
+  > distancia que se mide con regla**, y así no depende de acertar el modelo de
+  > ninguna.
+  >
+  > **Una sola perilla.** `CX_CENTRO` volvió a 50 (el centro real de la imagen) el
+  > 2026-08-20: estaba en 40 sin razón registrada, y con la cámara descentrada
+  > quedaban dos parámetros corrigiendo lo mismo, acoplados y sin forma de
+  > verificar cuál aportaba qué. Ahora `CX_CENTRO` define "centrado en la cámara"
+  > y `OFFSET_OBJETO_LATERAL` traduce eso a la geometría del robot.
 
 > **Con poca inclinación (15°), `cy` sube más despacio con la distancia.** Un mismo
 > `CY_CERCA` frena **más lejos** que con la cámara más inclinada, así que el `150` de
@@ -147,6 +183,21 @@ y baja con la luz; `cy` con la cámara inclinada baja de forma monótona al acer
   antes de aceptar "ya estoy cerca". Subilo si fija la coordenada demasiado lejos.
 - **`CONFIRMACIONES_CERCA`** (actual 3): lecturas seguidas con `cy >= CY_CERCA` antes
   de frenar. Filtra los picos de un cuadro suelto.
+- **`CENTRADO_FINAL_TIMEOUT`** (ms, actual 4000): tope del centrado en el lugar que
+  se hace **después** de frenar y **antes** de fijar la coordenada.
+
+  > **Por qué existe:** el acercamiento frena mirando **sólo `cy`** — `cx` no entra
+  > en la condición. O sea que el robot puede frenar a mitad de una corrección y
+  > quedar apuntando al costado, y como la coordenada se proyecta **en la dirección
+  > del rumbo**, ese desvío la manda a un punto que no es donde está el objeto.
+  >
+  > No se agrega `cx` a la condición de frenado porque las dos podrían no cumplirse
+  > nunca a la vez y siempre cortaría por el tope de seguridad. En cambio se frena
+  > por `cy` y después se gira en el lugar hasta centrar.
+  >
+  > Esto además es **precondición para medir `OFFSET_OBJETO_LATERAL`**: sin el
+  > centrado final, el desvío lateral cambia en cada corrida y no hay número
+  > estable que medir.
 - **`PERDIDAS_MAX`** (actual 10): lecturas seguidas sin ver el objeto antes de decidir
   qué hacer. A 20 ms por lectura, 10 ≈ 0.2 s. **El robot frena en la primera pérdida**,
   siempre: perder el objeto es justamente lo que pasa cuando lo tenés encima.

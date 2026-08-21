@@ -32,7 +32,12 @@ CLASES_OBJETIVO = (0, 1)
 CONFIANZA_MIN = 60    # % minimo de certeza para creerle a la prediccion
 
 # --- Centrado visual (donde queremos el objeto dentro de la imagen) ---
-CX_CENTRO = 40        # 50 = centro de la imagen
+CX_CENTRO = 50        # 50 = centro REAL de la imagen. Antes estaba en 40, sin razon
+                      # registrada. Se vuelve a 50 a proposito: la camara esta
+                      # descentrada respecto del robot, y esa correccion geometrica
+                      # va TODA en OFFSET_OBJETO_LATERAL, que se mide con regla.
+                      # Con 40 habia dos perillas corrigiendo lo mismo, acopladas y
+                      # sin forma de verificar cual aportaba que.
 CX_TOLERANCIA = 8     # margen aceptable alrededor del centro
 KP_CENTRADO = 1.5     # ganancia proporcional del giro al centrar
 
@@ -50,12 +55,35 @@ CY_PERDIDA_CERCA = 70  # si pierde el objeto habiendo llegado a este cy, se asum
                        # acercamiento por terminado en vez de salir a buscarlo.
                        # Tiene que ser MENOR que CY_CERCA.
 AREA_MIN_VALIDO = 2    # area minima para creerle al blob (filtra manchas de ruido)
-OFFSET_OBJETO = 150    # mm extra delante del robot donde queda el objeto. CALIBRAR
-                       # junto con CY_CERCA: medir con regla cuanto queda entre el
-                       # centro del robot y el objeto cuando frena.
+OFFSET_OBJETO_LATERAL = -65  # mm al COSTADO donde queda el objeto al frenar.
+                       # MEDIDO 2026-08-20: 65 mm a la IZQUIERDA del medio del eje,
+                       # consistente entre corridas y alineado con la camara. Que
+                       # coincida con el montaje fisico confirma que cx=50 es el eje
+                       # optico y que la pagina NO espeja la imagen.
+                       # derecha(+) / izquierda(-), igual que el eje +y compartido.
+                       #
+                       # No es cero: la camara NO esta en la linea media del robot
+                       # (esta ~65 mm a la IZQUIERDA, casi sobre la rueda), asi que
+                       # al "centrar" deja el objeto corrido respecto del centro.
+                       # A eso se le suma el sesgo de CX_CENTRO=40 (no 50) y si la
+                       # pagina espeja la imagen o no.
+                       #
+                       # NO lo calcules: MEDILO. Con pruebas/test-acercamiento.py
+                       # el robot frena y se queda quieto; medi cuanto queda el
+                       # objeto a un lado de la LINEA MEDIA del robot. Ese numero
+                       # ya incluye las tres causas juntas.
+OFFSET_OBJETO = 150    # mm ADELANTE (componente sobre el rumbo, no la diagonal).
+                       # MEDIDO 2026-08-20 con pruebas/test-acercamiento.py, desde
+                       # el MEDIO DEL EJE y con el centrado final ya aplicado.
+                       # Va acoplado a CY_CERCA: si se toca uno, re-medir el otro.
 
 # Ni cy ni el area alcanzan solos: pedimos varias lecturas seguidas Y haber
 # avanzado de verdad, para que una lectura alta suelta no fije la coordenada lejos.
+CENTRADO_FINAL_TIMEOUT = 4000  # ms max girando en el lugar para centrar ANTES de fijar
+                               # la coordenada. El acercamiento frena mirando SOLO cy,
+                               # asi que el objeto puede quedar corrido al costado; y
+                               # como la coordenada se proyecta en la direccion del
+                               # RUMBO, un cx descentrado la manda a otro punto.
 CONFIRMACIONES_CERCA = 3       # lecturas seguidas de cy >= CY_CERCA para creerle
 AVANCE_MIN_ACERCAMIENTO = 200  # mm que TIENE que avanzar antes de aceptar "ya estoy cerca".
                                # Subilo si fija la coordenada demasiado lejos del objeto.

@@ -50,6 +50,17 @@ Corrélo **una vez sin objeto** para conocer el ángulo de "garra cerrada en
 vacío": comparando ese número con el de cada corrida sabés si agarró algo de
 verdad o cerró en el aire.
 
+### `test-acercamiento.py` — medir `OFFSET_OBJETO` (explorador, con teléfono)
+
+Corre el acercamiento igual que la misión (buscar, centrar, acercarse hasta
+`CY_CERCA`) y **se queda quieto** en el punto donde la misión fija la coordenada,
+sin despejar ni transmitir. Es el único lugar donde `OFFSET_OBJETO` se puede
+medir con sentido.
+
+Necesita el teléfono conectado. Al frenar muestra `M`, imprime la pose y te
+deja un minuto para medir con regla — **del medio del eje al centro del objeto**.
+Mientras espera sigue imprimiendo la cámara, así verificás de paso el `cy` final.
+
 ## Pruebas de a dos hubs
 
 Cada una son **dos programas**: el `-explorador` en el hub 1 y el
