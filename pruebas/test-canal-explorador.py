@@ -9,24 +9,31 @@
 #
 # Si esto funciona, el canal broadcast/observe esta OK y recien ahi sumamos
 # la camara y la odometria de verdad (ver explorador/ y recuperador/).
+#
+# Usa BLERadio (pybricks.messaging), la MISMA API que explorador/main.py.
 # ---------------------------------------------------------------------------
 
 from pybricks.hubs import PrimeHub
+from pybricks.messaging import BLERadio
 from pybricks.parameters import Color
 from pybricks.tools import wait
 
 # El canal (1) tiene que ser el mismo que escucha el recuperador.
-hub = PrimeHub(broadcast_channel=1)
+CANAL = 1
+
+hub = PrimeHub()
+radio = BLERadio(broadcast_channel=CANAL)
 
 # Coordenada fija de prueba, en milimetros, mas la "clase" del objeto.
 #   x = 300 mm hacia adelante, y = 200 mm hacia el costado, clase = 0
 X, Y, CLASE = 300, 200, 0
 
 hub.display.char("E")  # "E" de Explorador
+print("Transmitiendo (%d, %d, %d) por el canal %d" % (X, Y, CLASE, CANAL))
 
 while True:
-    # Transmitir la tupla. El recuperador la recibe con hub.ble.observe(1).
-    hub.ble.broadcast((X, Y, CLASE))
+    # Transmitir la tupla. El recuperador la recibe con radio.observe(CANAL).
+    radio.broadcast((X, Y, CLASE))
 
     # Parpadeo verde para ver que esta transmitiendo.
     hub.light.on(Color.GREEN)
