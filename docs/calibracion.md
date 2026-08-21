@@ -110,9 +110,13 @@ y baja con la luz; `cy` con la cámara inclinada baja de forma monótona al acer
 - **`CY_CERCA`** (0–100, actual 80): el `cy` al que frena. **Cómo calibrarlo:** poné el
   objeto a la distancia a la que querés que frene, mirá el número **«altura Y»** en la
   pantalla del teléfono y ese valor va acá. Subilo para que se acerque más.
-- **`OFFSET_OBJETO`** (mm, actual 150): cuánto hay entre el centro del robot y el objeto
-  cuando frena. Medilo con regla **después** de fijar `CY_CERCA`. Ahora que el frenado
-  es repetible, este número por fin se puede medir una vez y queda bien.
+- **`OFFSET_OBJETO`** (mm, actual 150): cuánto hay entre el robot y el objeto cuando
+  frena. Medilo con regla **después** de fijar `CY_CERCA`. Ahora que el frenado es
+  repetible, este número por fin se puede medir una vez y queda bien.
+  > **Medilo desde el MEDIO DEL EJE**, no desde el paragolpes delantero. Toda la
+  > odometría está referida a ese punto (ver [`setup-cancha.md`](setup-cancha.md)).
+  > Medir desde el frente te deja la coordenada corta por el voladizo del chasis
+  > —fácilmente 5-8 cm— y ese error se traslada tal cual al recuperador.
 
 > **Con poca inclinación (15°), `cy` sube más despacio con la distancia.** Un mismo
 > `CY_CERCA` frena **más lejos** que con la cámara más inclinada, así que el `150` de

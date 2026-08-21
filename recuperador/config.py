@@ -64,8 +64,15 @@ CREEP_MAX = 550            # mm max de avance lento buscando el objeto (si no ap
 # --- Posicion de arranque respecto del explorador ---
 # Por defecto el recuperador arranca en el MISMO origen que el explorador
 # (ver docs/contrato-datos.md) -> offset 0. Si en tu cancha arranca corrido
-# (p.ej. 20 cm a la izquierda del explorador), poner el offset en el marco
-# compartido. En estos robots turn() positivo gira a la IZQUIERDA, asi que
-# "izquierda" = +y (ej.: 20 cm a la izquierda -> OFFSET_Y = 200).
-OFFSET_X = 0    # mm: adelante(+)/atras(-) respecto del explorador
-OFFSET_Y = 165    # mm: izquierda(+)/derecha(-) respecto del explorador
+# (p.ej. 16.5 cm a la izquierda del explorador), poner el offset en el marco
+# compartido.
+#
+# SIGNO DE +Y (verificado 2026-08-20, ver docs/setup-cancha.md):
+# turn() positivo gira a la DERECHA (horario), que es la convencion estandar de
+# Pybricks. El explorador integra su pose con y += paso*sin(rumbo) usando ese
+# mismo rumbo, asi que en el marco compartido +y es la DERECHA fisica.
+#   -> derecha = +y   |   izquierda = -y
+# El recuperador arranca a la IZQUIERDA del explorador, o sea en y NEGATIVO.
+OFFSET_X = 0      # mm: adelante(+)/atras(-) respecto del explorador
+OFFSET_Y = -165   # mm: derecha(+)/izquierda(-) respecto del explorador.
+                  # 165 mm a la IZQUIERDA -> -165.

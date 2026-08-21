@@ -10,15 +10,34 @@ arranca**. Para que el recuperador entienda esas coordenadas, tiene que arrancar
 en el **mismo punto** y mirando en la **misma dirección**.
 
 ```
-        +Y (costado)
-         │
-         │      • objeto (obj_x, obj_y)
-         │
+   visto DESDE ARRIBA
+
   origen ●───────────▶ +X (adelante, rumbo 0°)
-      (0,0)
-   los DOS robots
-   arrancan acá
+      (0,0)  │
+             │      • objeto (obj_x, obj_y)
+             │
+             ▼ +Y (la DERECHA física del robot)
 ```
+
+### ⚠️ El signo de `+Y`: es la DERECHA, no la izquierda
+
+`turn()` positivo gira **a la derecha** (horario) — es la convención estándar de
+Pybricks. El explorador integra su pose con `y += paso * sin(rumbo)` usando ese
+mismo rumbo (`explorador/main.py:67-68`), así que **`+y` es la derecha física**.
+
+Esto se verificó tres veces (2026-08-20): con el ensayo `MODO = "signo"` de
+[`../pruebas/calibrar-ruedas.py`](../pruebas/calibrar-ruedas.py), con el centrado
+del explorador (`error = cx - CX_CENTRO` con `>0 = objeto a la derecha` alimenta
+un giro positivo, y centra bien), y con la fórmula de la pose.
+
+**Consecuencia práctica:** un robot que arranca a la **izquierda** del explorador
+está en `y` **negativo**. El recuperador arranca 165 mm a la izquierda, así que
+`OFFSET_Y = -165`.
+
+> La navegación nunca estuvo mal: los dos robots usan la misma convención, así
+> que son consistentes entre sí. Lo que estaba mal era la descripción en los
+> comentarios ("izquierda = +y"), y de ahí salía un `OFFSET_Y` con el signo
+> invertido — 33 cm de error lateral, más de lo que el ultrasonido perdona.
 
 ### Cómo alinearlos
 1. Marcá en la cancha el **punto de origen** (una cruz de cinta) y una **línea de
@@ -31,6 +50,27 @@ en el **mismo punto** y mirando en la **misma dirección**.
 > Si tenés dos cruces (no podés reusar la misma), asegurate de que estén en el
 > mismo lugar físico o que sepas el offset entre ellas. El error de alineación se
 > traslada directo al punto al que va el recuperador.
+
+### El punto de referencia: el MEDIO DEL EJE
+
+Todas las distancias del sistema —el origen de cada robot, `OFFSET_X` /
+`OFFSET_Y`, y también `OFFSET_OBJETO` en el explorador— se miden desde el
+**punto medio entre las dos ruedas**, proyectado en el piso.
+
+No es el centro geométrico del chasis ni el paragolpes delantero. `DriveBase`
+modela un diferencial: el robot pivota alrededor del medio del eje, y toda la
+odometría (`robot.distance()`, `robot.angle()`, y la pose `(x, y)` que integra
+el explorador) está referida a ese punto. Si medís desde otro lado, el error se
+suma directo a la coordenada.
+
+**Cómo marcarlo:** mirando desde arriba, ubicá los dos puntos de contacto de las
+ruedas con el piso; el medio del segmento que los une es el punto. Pegá una
+cinta en el chasis justo encima para tenerlo a mano.
+
+**Para medir el offset entre los dos robots:** ponelos en sus posiciones reales,
+ambos alineados con la línea de rumbo, y medí entre las dos marcas las **dos
+componentes por separado** — la perpendicular al avance es `OFFSET_Y`, la
+paralela es `OFFSET_X`. No midas la diagonal.
 
 ## Canal BLE
 

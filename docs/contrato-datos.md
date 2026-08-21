@@ -72,7 +72,10 @@ Las coordenadas `(obj_x, obj_y)` solo significan lo mismo para los dos robots si
 **ambos arrancan en el mismo lugar y mirando en la misma dirección**:
 
 - Origen `(0, 0)` = punto de partida común.
-- Rumbo `0°` = hacia adelante (eje +X). El eje +Y es hacia el costado.
+- Rumbo `0°` = hacia adelante (eje +X). **El eje +Y es hacia la DERECHA física**,
+  porque `turn()` positivo gira en sentido horario (convención de Pybricks) y el
+  explorador integra su pose con ese mismo rumbo. Un punto a la izquierda tiene
+  `y` **negativo**. Ver [`setup-cancha.md`](setup-cancha.md).
 - Cada robot hace `robot.reset()` al empezar, así su odometría cuenta desde el origen.
 
 Si los robots no arrancan alineados, el recuperador irá a un punto equivocado
