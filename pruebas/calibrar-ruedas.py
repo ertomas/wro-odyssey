@@ -43,8 +43,8 @@ from pybricks.robotics import DriveBase
 from pybricks.tools import wait
 
 # --- Que robot y que ensayo ---
-ROBOT = "recuperador"   # "recuperador" o "explorador"
-MODO = "signo"          # "recta", "giro" o "signo"
+ROBOT = "explorador"    # "recuperador" o "explorador"
+MODO = "giro"          # "recta", "giro" o "signo"
 
 DISTANCIA_RECTA = 800   # mm del ensayo de recta. Cuanto mas largo, mejor promedia
                         # el error, pero tiene que ENTRAR en la pista con margen:
@@ -63,9 +63,9 @@ if ROBOT == "recuperador":
     AXLE_TRACK = 164  # medido con regla: 161. El calibrado sale mayor por el
                       # patinaje al pivotar (ver docs/calibracion.md).
 else:
-    PUERTO_IZQ, PUERTO_DER = Port.A, Port.B
+    PUERTO_IZQ, PUERTO_DER = Port.B, Port.A  # recableado 2026-08-20: igual que el recuperador
     WHEEL_DIAMETER = 56
-    AXLE_TRACK = 113
+    AXLE_TRACK = 112
 
 hub = PrimeHub()
 motor_izq = Motor(PUERTO_IZQ, Direction.COUNTERCLOCKWISE)

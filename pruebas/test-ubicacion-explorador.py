@@ -46,9 +46,9 @@ DESPEJE_LATERAL = 500     # mm perpendiculares al camino del recuperador
 # --- Hardware calibrado (SYNC con explorador/config.py) ---
 hub = PrimeHub()
 radio = BLERadio(broadcast_channel=CANAL)
-motor_izq = Motor(Port.A, Direction.COUNTERCLOCKWISE)
-motor_der = Motor(Port.B, Direction.CLOCKWISE)
-robot = DriveBase(motor_izq, motor_der, wheel_diameter=56, axle_track=113)
+motor_izq = Motor(Port.B, Direction.COUNTERCLOCKWISE)  # recableado 2026-08-20
+motor_der = Motor(Port.A, Direction.CLOCKWISE)
+robot = DriveBase(motor_izq, motor_der, wheel_diameter=56, axle_track=112)
 
 
 def sembrar_azar():

@@ -62,8 +62,22 @@ O sea: **subir `AXLE_TRACK` → gira MÁS. Bajarlo → gira MENOS.**
 
 | Robot | WHEEL_DIAMETER | AXLE_TRACK | Fecha |
 |-------|----------------|------------|-------|
-| Explorador | 56 | 113 | 2026-07-04 |
+| Explorador | 56 | 112 | 2026-08-20 |
 | Recuperador | 56 | 164 | 2026-08-20 |
+
+> **Los dos robots usan ahora el mismo cableado**: motor izquierdo en `Port.B`,
+> derecho en `Port.A` (el explorador se recableó el 2026-08-20 para igualarlo).
+> Si se cruzan esos dos puertos, la recta sigue andando pero **todos los giros
+> salen espejados** — y el error se disfraza porque el síntoma no aparece hasta
+> que el robot tiene que girar hacia una coordenada.
+>
+> Ensayo `MODO = "signo"` en ambos: `turn(+90)` gira a la **derecha**. Corrélo
+> siempre después de tocar el cableado, antes que cualquier otro ensayo.
+>
+> Explorador (2026-08-20): recta 800 mm pedidos → 799 reales, dentro de
+> tolerancia, `WHEEL_DIAMETER` sin cambios. `AXLE_TRACK` por ensayo de 3 vueltas
+> **con el teléfono montado** (el peso alto y adelantado cambia el patinaje).
+> Calibrado en piso duro, no en la lona: verificar cuando esté la pista.
 
 > Recuperador (2026-08-20): recta 800 mm pedidos → 798 reales, dentro de
 > tolerancia, `WHEEL_DIAMETER` sin cambios. `AXLE_TRACK` por ensayo de 3 vueltas:

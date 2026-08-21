@@ -11,13 +11,18 @@ from pybricks.parameters import Port, Direction
 CANAL = 1
 
 # --- Hardware: puertos y geometria del robot ---
-PUERTO_MOTOR_IZQ = Port.A
-PUERTO_MOTOR_DER = Port.B
+# Recableado 2026-08-20: los DOS robots usan ahora el mismo criterio
+# (izquierdo en B, derecho en A). Si se cruzan estos dos puertos, la recta
+# sigue andando pero TODOS los giros salen espejados.
+PUERTO_MOTOR_IZQ = Port.B
+PUERTO_MOTOR_DER = Port.A
 DIRECCION_MOTOR_IZQ = Direction.COUNTERCLOCKWISE  # el izquierdo suele ir invertido
 DIRECCION_MOTOR_DER = Direction.CLOCKWISE
 
 WHEEL_DIAMETER = 56   # mm  -> medir y calibrar (ver docs/calibracion.md)
-AXLE_TRACK = 113      # mm  -> distancia entre las dos ruedas
+AXLE_TRACK = 112      # mm  -> calibrado 2026-08-20 con el ensayo de 3 vueltas
+                      # (con el telefono montado). NO es la medida con regla:
+                      # ver la advertencia en docs/calibracion.md.
 
 # --- Deteccion: que objeto(s) buscamos y cuando le creemos ---
 # Indices de las clases del modelo Teachable Machine que cuentan como "objetivo".

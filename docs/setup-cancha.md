@@ -34,6 +34,12 @@ un giro positivo, y centra bien), y con la fórmula de la pose.
 está en `y` **negativo**. El recuperador arranca 165 mm a la izquierda, así que
 `OFFSET_Y = -165`.
 
+> Para no equivocarte con el signo, no pienses en "izquierda/derecha" desde donde
+> estás parado — depende de si mirás a los robots de frente o desde atrás.
+> Usá el propio robot como referencia: **¿el recuperador está del lado de la rueda
+> izquierda del explorador (Port.B) o de la derecha (Port.A)?** Izquierda → `-y`.
+> Verificado así el 2026-08-20: está del lado izquierdo.
+
 > La navegación nunca estuvo mal: los dos robots usan la misma convención, así
 > que son consistentes entre sí. Lo que estaba mal era la descripción en los
 > comentarios ("izquierda = +y"), y de ahí salía un `OFFSET_Y` con el signo
