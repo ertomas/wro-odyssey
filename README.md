@@ -49,14 +49,16 @@ a un **robot recuperador**, que navega hasta el objeto y lo agarra con una garra
    El **modelo de Teachable Machine viene incluido** en [`deteccion/model/`](deteccion/model/)
    y la página lo carga sola al abrir (para cambiarlo, ver el README de esa carpeta).
 
-## Antes de tocar código: probá el canal
+## Antes de tocar código: calibrá y probá por partes
 
-Si la comunicación entre los dos hubs anda, el resto es más fácil de depurar.
-Corré los dos programas de [`pruebas/`](pruebas/) (uno en cada hub) para confirmar
-`broadcast`/`observe` con una coordenada fija, sin cámara.
+En [`pruebas/`](pruebas/) hay programas sueltos para calibrar cada subsistema
+(ruedas, ultrasonido, garra, elevador) y para probar los dos hubs juntos **sin
+cámara**: primero el canal con una coordenada fija, después la misión completa
+menos la visión. Ver [`pruebas/README.md`](pruebas/README.md) para el orden.
 
 ## Documentación
 
+- [`pruebas/README.md`](pruebas/README.md) — qué prueba cada programa y en qué orden correrlos.
 - [`deteccion/index.html`](deteccion/index.html) — página de la cámara con Teachable Machine (HTML suelto).
 - [`docs/contrato-datos.md`](docs/contrato-datos.md) — qué datos se mandan y en qué formato.
 - [`docs/calibracion.md`](docs/calibracion.md) — medir las ruedas y ajustar la garra.
