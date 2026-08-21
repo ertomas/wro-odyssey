@@ -177,30 +177,87 @@ termina abajo; sube sólo después de agarrar el objeto.
 > cero. Si el elevador se traba al arrancar, casi siempre es el **signo** del
 > ángulo (está empujando contra el tope).
 
-## Ultrasonido y aproximación final: `DIST_AGARRE` y compañía
+## Ultrasonido y aproximación final
 
-Solo en el recuperador (Port.E), montado a **~7 cm del punto de agarre**. Para no
-embestir el objeto, el robot **no maneja a ciegas** hasta la coordenada: frena un
-margen antes y hace el último tramo **despacio mirando el sensor**, deteniéndose
-apenas el objeto entra en rango.
+Solo en el recuperador (Port.E). Corré [`../pruebas/calibrar-ultrasonido.py`](../pruebas/calibrar-ultrasonido.py):
+no mueve nada, sólo imprime la lectura en loop, así que podés manipular el objeto
+con la mano mientras corre.
 
-- **`DIST_AGARRE`** (mm, actual 60): lectura esperada con el objeto en la garra.
-  Poné el objeto agarrado y mirá qué lee el sensor (aparece en la terminal como
-  `Ultrasonido: … mm`); ese número va acá.
-- **`TOLERANCIA_AGARRE`** (mm, actual 20): frena cuando `d <= DIST_AGARRE + esto`.
-  Subilo si frena demasiado lejos; bajalo si igual lo toca antes de frenar.
+### ⚠️ El sensor NO puede decidir el agarre
+
+Medido en cancha (2026-08-20) con el objeto real:
+
+| Medición | Valor |
+|---|---|
+| Lecturas confiables | **≥ 54 mm** |
+| Más cerca que eso | se **clava en 40** y salta entre 40 y 65 |
+| La garra agarra bien hasta | **55 mm** |
+| Mirando al vacío | **> 400 mm** |
+
+Ese `40` **no es una medición**: es el piso del sensor, el valor que reporta
+cuando el objeto está más cerca de lo que puede medir. La zona confiable (≥54) y
+la ventana de captura (≤55) **se solapan en 1 mm**. No existe ninguna lectura
+confiable que caiga con holgura dentro de la ventana de agarre, así que el
+criterio "frenar cuando el objeto entra en rango de la garra" es inviable — no se
+arregla ajustando números.
+
+### ⚠️ La garra tiene que quedar SOSTENIDA abierta
+
+Medido con [`../pruebas/diag-ultrasonido.py`](../pruebas/diag-ultrasonido.py)
+(2026-08-20), con el frente libre:
+
+| Estado | Lectura |
+|---|---|
+| Garra **abierta** | 2000 (= no ve nada) |
+| Garra **cerrada** | **89** |
+| Elevador arriba / en marcha / frenado | 2000 |
+
+O sea: **la garra cerrada se mete en el cono del sensor.** Y como
+`run_until_stalled` termina en *coast* (fuerza cero), si se abre y se la deja
+suelta, el tirón del arranque la hace derivar hacia adentro — el sensor pasa de
+2000 a ~55-70 y la aproximación dispara un falso positivo al instante.
+
+Por eso, después de cada apertura que tenga que durar, va **`garra.hold()`**.
+El mismo motivo por el que después de cerrar va `garra.dc(-GARRA_DUTY_SOSTEN)`:
+en este robot ninguna posición de la garra se mantiene sola.
+
+> Si alguna vez el recuperador "detecta" el objeto apenas arranca y cierra en el
+> aire, mirá esto primero. La misión ahora avisa al arrancar si el sensor lee
+> cerca sin nada delante (beep + mensaje en la terminal).
+
+### La aproximación va en dos tramos
+
+1. **Detectar**: avanzar despacio hasta leer `UMBRAL_DETECCION`, bien dentro de
+   la zona confiable del sensor.
+2. **Rematar por odometría**: frenar, **re-medir quieto** (mediana de varias
+   lecturas) y cubrir el resto con `robot.straight()`.
+
+El re-medido quieto es lo que hace robusto al esquema: mide desde donde el robot
+**quedó**, así que absorbe solo el sobrepaso del frenado. Y sobre ~100 mm la
+odometría calibrada tiene error submilimétrico — mucho mejor que el sensor.
+
+- **`UMBRAL_DETECCION`** (mm, actual 150): lectura a la que da por detectado el
+  objeto. Tiene que estar **bien por encima** de `DIST_MIN_CONFIABLE` y **bien por
+  debajo** de la lectura en vacío. Con 54 y >400, el 150 queda cómodo en el medio.
+- **`DIST_OBJETIVO_FINAL`** (mm, actual 45): dónde deja el objeto antes de cerrar.
+  Tiene que caer en el **centro de la ventana de captura**. Medí la ventana así:
+  poné el objeto en el punto de agarre, cerrá la garra y confirmá; después alejalo
+  de a 10 mm hasta que falle. El valor va al medio del rango que funcionó.
+- **`DIST_MIN_CONFIABLE`** (mm, actual 54): sólo de referencia, para documentar
+  dónde deja de servir el sensor. No lo usa el código.
+- **`LECTURAS_CONFIRMACION`** (actual 5) y **`MARGEN_CONFIRMACION`** (mm, actual
+  50): cuántas lecturas quietas promedia (por mediana) y cuánto puede empeorar la
+  lectura al frenar antes de dar el objeto por ruido y rendirse.
 - **`MARGEN_APROXIMACION`** (mm, actual 300): cuánto antes de la coordenada deja de
-  ir rápido y arranca la aproximación lenta. Subilo si la coordenada de la cámara
-  es imprecisa (frena antes y se acerca más lento pero más seguro). Tiene que ser
-  **más grande que el error radial del explorador**: si el explorador sobreestima la
-  distancia y este margen es chico, el robot embiste el objeto a velocidad de
-  crucero antes de empezar a mirar el sensor.
-- **`VEL_APROXIMACION`** (mm/s, actual 40): velocidad del tramo final. Más lento =
-  frena más justo, menos chance de pasarse.
-- **`CREEP_MAX`** (mm, actual 550): cuánto avanza lento como máximo buscando el
-  objeto. Si no lo detecta en esa distancia, se rinde (muestra `X`) en vez de
-  seguir de largo.
+  ir rápido. Tiene que ser **más grande que el error radial del explorador**: si el
+  explorador sobreestima la distancia y este margen es chico, el robot embiste el
+  objeto a velocidad de crucero antes de empezar a mirar el sensor.
+- **`VEL_APROXIMACION`** (mm/s, actual 40): velocidad del tramo de búsqueda. Ahora
+  que el frenado se autocorrige con el re-medido quieto, **se puede subir** para
+  ganar tiempo de misión. Subilo de a poco y verificá.
+- **`CREEP_MAX`** (mm, actual 550): cuánto avanza lento como máximo buscando. Si no
+  detecta nada, se rinde (muestra `X`) en vez de seguir de largo.
 
-> Con estos tres valores el tramo lento cubre la ventana `[dist-300, dist+250]`
-> alrededor de la coordenada recibida, y en el peor caso tarda `550 / 40 ≈ 14 s`.
-> Si el reloj de la misión aprieta, lo primero a recortar es `CREEP_MAX`.
+> El tramo lento cubre `[dist-300, dist+250]` alrededor de la coordenada recibida,
+> y en el peor caso tarda `550 / 40 ≈ 14 s`. Si el reloj aprieta, subí
+> `VEL_APROXIMACION` antes que recortar `CREEP_MAX`.

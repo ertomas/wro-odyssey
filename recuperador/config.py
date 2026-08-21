@@ -44,22 +44,46 @@ ELEVADOR_ANGULO_ARRIBA = -90  # deg desde "abajo" (0) hasta "levantada"
                               # (si baja en vez de subir, invertir el signo)
 
 # --- Ultrasonido + aproximacion final (Port.E) ---
-# El sensor esta a ~7 cm del punto de agarre: un objeto en la garra se lee en
-# ~DIST_AGARRE mm. Para NO embestir el objeto, el robot no maneja a ciegas hasta
-# la coordenada: frena MARGEN_APROXIMACION antes y hace el ultimo tramo DESPACIO
-# mirando el sensor, frenando apenas el objeto entra en rango.
+# MEDIDO EN CANCHA 2026-08-20 (ver docs/calibracion.md):
+#   - Lecturas confiables solo de 54 mm para arriba. Mas cerca el sensor se
+#     CLAVA en 40 (ese 40 no es una medicion: es el piso del sensor) y salta
+#     erraticamente entre 40 y 65.
+#   - La garra agarra bien hasta una lectura de 55.
+#   - Mirando al vacio lee >400.
+# O sea: la zona confiable (>=54) y la ventana de captura (<=55) se solapan en
+# 1 mm. NO se puede usar el sensor para decidir "el objeto esta en la garra".
 #
-# Con estos valores el tramo lento cubre la ventana [dist-300, dist+250] alrededor
-# de la coordenada recibida. El margen tiene que ser MAS GRANDE que el error radial
-# del explorador: si el explorador sobreestima la distancia y el margen es chico,
-# el robot embiste el objeto a velocidad de crucero ANTES de empezar a mirar el
-# sensor. Peor caso del tramo lento: 550 mm / 40 mm/s = ~14 s.
+# POR ESO la aproximacion final va en DOS TRAMOS:
+#   1. Avanzar despacio hasta DETECTAR el objeto a UMBRAL_DETECCION, que esta
+#      bien dentro de la zona confiable del sensor.
+#   2. Frenar, RE-MEDIR QUIETO (mediana de varias lecturas) y cubrir el resto
+#      con ODOMETRIA hasta dejar el objeto a DIST_OBJETIVO_FINAL.
+# El re-medido quieto absorbe el sobrepaso del frenado, asi que el avance final
+# se calcula desde la posicion REAL. Sobre ~100 mm la odometria calibrada tiene
+# error submilimetrico: mucho mejor que el sensor a esa distancia.
 PUERTO_ULTRASONIDO = Port.E
-DIST_AGARRE = 60           # mm: lectura esperada con el objeto en la garra
-TOLERANCIA_AGARRE = 20     # mm: frena cuando d <= DIST_AGARRE + esto (objeto en rango)
-MARGEN_APROXIMACION = 300  # mm antes de la coordenada donde deja de manejar a ciegas
-VEL_APROXIMACION = 40      # mm/s en la aproximacion final guiada por el sensor
-CREEP_MAX = 550            # mm max de avance lento buscando el objeto (si no aparece, se rinde)
+DIST_MIN_CONFIABLE = 54     # mm: por debajo de esto la lectura no sirve (referencia)
+UMBRAL_DETECCION = 150      # mm: lectura a la que se da por detectado el objeto.
+                            # 3x el minimo confiable y 1/3 de la lectura en vacio.
+DIST_OBJETIVO_FINAL = 45    # mm: donde queremos dejar el objeto antes de cerrar.
+                            # Centro de la ventana de captura (agarra hasta 55).
+ESPERA_ASENTAMIENTO = 400   # ms de marcha antes de creerle al sensor. El tiron del
+                            # arranque hace saltar la lectura de >400 a 55-70 (se
+                            # balancea la garra / cabecea el chasis) y eso disparaba
+                            # el agarre al instante. A 40 mm/s son ~16 mm: inofensivo.
+CONFIRMACIONES_DETECCION = 3  # lecturas SEGUIDAS bajo el umbral para dar por detectado.
+                            # Una sola lectura es un pico; tres seguidas es un objeto.
+LECTURAS_CONFIRMACION = 5   # lecturas quietas antes del tramo final; se usa la MEDIANA
+MARGEN_CONFIRMACION = 50    # mm: si al re-medir quieto da mas de UMBRAL+esto, lo que
+                            # vimos en movimiento era ruido -> se rinde, no agarra
+MARGEN_APROXIMACION = 300   # mm antes de la coordenada donde deja de manejar a ciegas.
+                            # Tiene que ser MAS GRANDE que el error radial del
+                            # explorador, o el robot embiste el objeto a velocidad
+                            # de crucero antes de empezar a mirar el sensor.
+VEL_APROXIMACION = 40       # mm/s del tramo de busqueda. Ahora que el frenado se
+                            # auto-corrige con el re-medido quieto, se puede subir
+                            # para ganar tiempo de mision (probar de a poco).
+CREEP_MAX = 550             # mm max de avance lento buscando el objeto (si no aparece, se rinde)
 
 # --- Posicion de arranque respecto del explorador ---
 # Por defecto el recuperador arranca en el MISMO origen que el explorador
