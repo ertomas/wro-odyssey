@@ -47,10 +47,14 @@ KP_CENTRADO = 1.5     # ganancia proporcional del giro al centrar
 # piso baja en el cuadro de forma monotona a medida que te acercas, y eso no
 # depende de la luz ni de cuanto fondo del mismo tono haya. El area, si.
 # cy va de 0 (arriba del cuadro = lejos) a 100 (abajo del todo = encima).
-CY_CERCA = 80          # cy al que frena y fija la coordenada. CALIBRAR mirando el
+CY_CERCA = 70          # cy al que frena y fija la coordenada. CALIBRAR mirando el
                        # numero "altura Y" en el telefono con el objeto a la distancia
                        # a la que querras que frene. Subilo para acercarse mas.
-CY_PERDIDA_CERCA = 70  # si pierde el objeto habiendo llegado a este cy, se asume que
+                       # Bajado de 80 a 70 el 2026-08-21: al suavizar la aceleracion
+                       # el robot recorre mas entre que cruza el umbral y frena, y
+                       # llegaba demasiado cerca. OJO: va ACOPLADO a OFFSET_OBJETO,
+                       # hay que RE-MEDIRLO despues de tocar esto.
+CY_PERDIDA_CERCA = 60  # si pierde el objeto habiendo llegado a este cy, se asume que
                        # salio por el borde INFERIOR (lo tenemos encima) y da el
                        # acercamiento por terminado en vez de salir a buscarlo.
                        # Tiene que ser MENOR que CY_CERCA.
@@ -109,3 +113,18 @@ DESPEJE_LATERAL = 500    # mm perpendiculares al camino del recuperador
 # --- Velocidades de maniobra ---
 VEL_BUSQUEDA = 15     # deg/s girando en el lugar para buscar
 VEL_ACERCAMIENTO = 120  # mm/s avanzando hacia el objeto
+
+# --- Suavidad: aceleracion y tope de giro ---
+# La odometria de ESTE robot produce la coordenada que consume todo el resto, y
+# el patinaje es un error que los encoders NO pueden ver: robot.angle() sigue
+# reportando lo que se pidio. O sea que el movimiento brusco se convierte en una
+# coordenada mal ubicada sin dejar ninguna senal. Por eso conviene ir suave
+# aunque tarde un poco mas.
+ACELERACION_RECTA = 250  # mm/s^2 (default de DriveBase ~500)
+ACELERACION_GIRO = 300   # deg/s^2. El telefono va alto y adelantado: acelerar
+                         # fuerte al pivotar hace patinar las ruedas.
+VEL_GIRO_MAX = 45        # deg/s: TOPE del giro proporcional del centrado.
+                         # Sin tope, un error de cx grande (hasta +-50) por
+                         # KP_CENTRADO pide ~75 deg/s de golpe: tiron, patinaje
+                         # y odometria sucia. Con tope, el mismo control pero sin
+                         # sacudones. Bajalo si sigue brusco al centrar.

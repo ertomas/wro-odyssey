@@ -47,6 +47,13 @@ robot = DriveBase(
     wheel_diameter=config.WHEEL_DIAMETER,
     axle_track=config.AXLE_TRACK,
 )
+# Suavizar la aceleracion. La odometria de este robot produce la coordenada que
+# consume el resto de la mision, y el patinaje por arrancar/frenar de golpe es un
+# error que los encoders NO ven. Ir suave cuesta unos segundos y compra precision.
+robot.settings(
+    straight_acceleration=config.ACELERACION_RECTA,
+    turn_acceleration=config.ACELERACION_GIRO,
+)
 
 # Buffer de la camara del telefono: 5 bytes en el modo 0.
 app = AppData([(0, 5)])
@@ -70,6 +77,23 @@ def actualizar_pose():
     return rumbo
 
 
+def giro_centrado(error):
+    """Velocidad de giro proporcional al error de cx, CON TOPE.
+
+    Sin tope, un error grande (cx puede estar a +-50 del centro) por
+    KP_CENTRADO pide un giro muy rapido de golpe: el robot pega un tiron, las
+    ruedas patinan y la odometria se ensucia. Y el patinaje es justo lo que los
+    encoders NO ven, asi que el error entra en la coordenada transmitida sin
+    dejar rastro. Con tope es el mismo control, pero sin sacudones.
+    """
+    rate = error * config.KP_CENTRADO
+    if rate > config.VEL_GIRO_MAX:
+        return config.VEL_GIRO_MAX
+    if rate < -config.VEL_GIRO_MAX:
+        return -config.VEL_GIRO_MAX
+    return rate
+
+
 def leer_camara():
     """Devuelve (clase, confianza, cx, area, cy) que manda el telefono."""
     clase, conf, cx, area, cy = app.get_bytes(mode=0)
@@ -81,8 +105,8 @@ def objeto_visible(clase, conf, area):
 
     El area minima importa porque clase/confianza salen de Teachable Machine y
     cx/cy salen del blob de color: son independientes. Sin este filtro, el modelo
-    puede decir "egipto" mientras el blob no ve nada, y la pagina manda cx=50,
-    que con CX_CENTRO=40 se traduce en un giro fantasma.
+    puede decir "egipto" mientras el blob no ve nada, y la pagina manda un cx
+    cualquiera que se traduce en un giro fantasma.
     """
     return (clase in config.CLASES_OBJETIVO
             and conf >= config.CONFIANZA_MIN
@@ -114,7 +138,7 @@ while True:
         if abs(error) <= config.CX_TOLERANCIA:
             robot.stop()
             break
-        robot.drive(0, error * config.KP_CENTRADO)  # girar proporcional al error
+        robot.drive(0, giro_centrado(error))  # girar proporcional al error, con tope
     else:
         robot.drive(0, config.VEL_BUSQUEDA)  # se perdio: seguir buscando
     wait(20)
@@ -154,7 +178,7 @@ while True:
         else:
             confirmaciones = 0
         error = cx - config.CX_CENTRO
-        robot.drive(config.VEL_ACERCAMIENTO, error * config.KP_CENTRADO)
+        robot.drive(config.VEL_ACERCAMIENTO, giro_centrado(error))
     else:
         # Objeto perdido: FRENAR. Antes seguia avanzando a ciegas y por eso a veces
         # colisionaba: perder el objeto es justamente lo que pasa cuando lo tenes
@@ -193,7 +217,7 @@ while reloj_centrado.time() < config.CENTRADO_FINAL_TIMEOUT:
     error = cx - config.CX_CENTRO
     if abs(error) <= config.CX_TOLERANCIA:
         break
-    robot.drive(0, error * config.KP_CENTRADO)
+    robot.drive(0, giro_centrado(error))
     wait(20)
 robot.stop()
 

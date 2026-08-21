@@ -81,6 +81,9 @@ radio = BLERadio(broadcast_channel=CANAL)
 motor_izq = Motor(Port.B, Direction.COUNTERCLOCKWISE)  # recableado 2026-08-20
 motor_der = Motor(Port.A, Direction.CLOCKWISE)
 robot = DriveBase(motor_izq, motor_der, wheel_diameter=56, axle_track=112)
+# Suavizar la aceleracion: el patinaje por arrancar/frenar de golpe es un error
+# que los encoders NO ven y ensucia la pose. SYNC con explorador/config.py.
+robot.settings(straight_acceleration=250, turn_acceleration=300)
 
 
 def sembrar_azar():

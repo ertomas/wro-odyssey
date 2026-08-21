@@ -66,12 +66,16 @@ AREA_MIN_VALIDO = 2
 CX_CENTRO = 50    # centro REAL de la imagen (antes 40; ver explorador/config.py)
 CX_TOLERANCIA = 8
 KP_CENTRADO = 1.5
+VEL_GIRO_MAX = 45        # deg/s: tope del giro proporcional (sin tope, un error
+                         # grande pide ~75 deg/s de golpe -> tiron y patinaje)
+ACELERACION_RECTA = 250  # mm/s^2
+ACELERACION_GIRO = 300   # deg/s^2
 CENTRADO_FINAL_TIMEOUT = 4000  # ms max girando en el lugar para centrar al final
 
 # --- Acercamiento (lo que estamos calibrando) ---
 OFFSET_OBJETO = 150    # mm adelante (SYNC con explorador/config.py)
-CY_CERCA = 80
-CY_PERDIDA_CERCA = 70
+CY_CERCA = 70          # bajado de 80 el 2026-08-21 (ver explorador/config.py)
+CY_PERDIDA_CERCA = 60  # SIEMPRE menor que CY_CERCA
 CONFIRMACIONES_CERCA = 3
 AVANCE_MIN_ACERCAMIENTO = 200
 PERDIDAS_MAX = 10
@@ -87,6 +91,10 @@ motor_izq = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motor_der = Motor(Port.A, Direction.CLOCKWISE)
 robot = DriveBase(motor_izq, motor_der,
                   wheel_diameter=WHEEL_DIAMETER, axle_track=AXLE_TRACK)
+# Suavizar la aceleracion: el patinaje por arrancar de golpe es un error que los
+# encoders NO ven, asi que ensucia la pose sin dejar rastro. SYNC con config.py.
+robot.settings(straight_acceleration=ACELERACION_RECTA,
+               turn_acceleration=ACELERACION_GIRO)
 
 app = AppData([(0, 5)])  # 5 bytes del telefono en el modo 0
 
@@ -107,6 +115,16 @@ def actualizar_pose():
     y += paso * sin(radians(rumbo))
     _d_prev = d
     return rumbo
+
+
+def giro_centrado(error):
+    """Giro proporcional al error de cx, CON TOPE (espeja explorador/main.py)."""
+    rate = error * KP_CENTRADO
+    if rate > VEL_GIRO_MAX:
+        return VEL_GIRO_MAX
+    if rate < -VEL_GIRO_MAX:
+        return -VEL_GIRO_MAX
+    return rate
 
 
 def leer_camara():
@@ -145,7 +163,7 @@ while True:
         if abs(error) <= 8:
             robot.stop()
             break
-        robot.drive(0, error * KP_CENTRADO)
+        robot.drive(0, giro_centrado(error))
     else:
         robot.drive(0, VEL_BUSQUEDA)
     wait(20)
@@ -181,7 +199,7 @@ while True:
         else:
             confirmaciones = 0
         error = cx - CX_CENTRO
-        robot.drive(VEL_ACERCAMIENTO, error * KP_CENTRADO)
+        robot.drive(VEL_ACERCAMIENTO, giro_centrado(error))
     else:
         confirmaciones = 0
         perdidas += 1
@@ -209,7 +227,7 @@ while reloj_centrado.time() < CENTRADO_FINAL_TIMEOUT:
     error = cx - CX_CENTRO
     if abs(error) <= CX_TOLERANCIA:
         break
-    robot.drive(0, error * KP_CENTRADO)
+    robot.drive(0, giro_centrado(error))
     wait(20)
 robot.stop()
 
