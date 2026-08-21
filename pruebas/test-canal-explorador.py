@@ -16,10 +16,11 @@
 from pybricks.hubs import PrimeHub
 from pybricks.messaging import BLERadio
 from pybricks.parameters import Color
-from pybricks.tools import wait
+from pybricks.tools import wait, StopWatch
 
 # El canal (1) tiene que ser el mismo que escucha el recuperador.
 CANAL = 1
+TRANSMISION_MS = 60000  # ms transmitiendo, y despues PARA (libera el canal)
 
 hub = PrimeHub()
 radio = BLERadio(broadcast_channel=CANAL)
@@ -31,7 +32,15 @@ X, Y, CLASE = 300, 200, 0
 hub.display.char("E")  # "E" de Explorador
 print("Transmitiendo (%d, %d, %d) por el canal %d" % (X, Y, CLASE, CANAL))
 
-while True:
+# Transmitir por un rato ACOTADO y despues PARAR.
+# Nunca dejar esto en bucle infinito: un broadcast que sobrevive a la corrida
+# hace que la SIGUIENTE arranque con datos viejos, y el receptor sale hacia una
+# coordenada de otra corrida. El dato es valido, solo que viejo, asi que no hay
+# forma de detectarlo mirando el contenido. Por eso el receptor ademas exige
+# silencio en el canal antes de aceptar nada: ARRANCAR SIEMPRE EL RECEPTOR
+# PRIMERO y este despues.
+reloj = StopWatch()
+while reloj.time() < TRANSMISION_MS:
     # Transmitir la tupla. El recuperador la recibe con radio.observe(CANAL).
     radio.broadcast((X, Y, CLASE))
 
@@ -40,3 +49,7 @@ while True:
     wait(100)
     hub.light.off()
     wait(400)
+
+radio.broadcast(None)  # liberar el canal
+hub.display.char("F")
+print("Fin de la transmision: canal liberado.")

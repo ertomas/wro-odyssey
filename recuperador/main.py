@@ -87,6 +87,29 @@ if not sensor_despejado():
 # El explorador transmite una tupla (x, y, clase). Ignoramos cualquier otra cosa
 # que aparezca en el canal (p.ej. broadcasts de otro programa/hub) y seguimos
 # esperando, en vez de aceptar el primer dato y crashear.
+# 1a. Primero exigir SILENCIO en el canal. Si quedo un broadcast viejo dando
+#     vueltas (un explorador de una corrida anterior que nunca dejo de
+#     transmitir), aceptarlo mandaria el robot al sitio de ESA corrida: la
+#     coordenada es valida, solo que vieja, asi que no hay forma de detectarla
+#     mirando el dato. Exigir silencio garantiza que lo que aceptemos empezo
+#     DESPUES de que nos pusimos a escuchar.
+print("Esperando que el canal se libere...")
+silencios = 0
+ocupado = 0
+while silencios < config.SILENCIOS_CANAL_LIBRE:
+    if radio.observe(config.CANAL) is None:
+        silencios += 1
+    else:
+        silencios = 0
+        ocupado += 1
+        if ocupado % 20 == 1:
+            print("Canal OCUPADO: hay un broadcast viejo dando vueltas.")
+            print("  Detene el programa del explorador y volve a arrancarlo.")
+    wait(50)
+
+# 1b. Ahora si, esperar la coordenada de ESTA corrida. Se ignora cualquier cosa
+#     que no sea una tupla de 3 (p.ej. broadcasts de otro programa).
+print("Canal libre. Esperando coordenada...")
 objetivo = None
 while objetivo is None:
     datos = radio.observe(config.CANAL)  # None si no oye nada hace ~1 s

@@ -86,8 +86,23 @@ en ambos a la vez para no cruzar señales.
 
 ## Orden de arranque
 
-1. **Recuperador primero.** Al arrancar queda escuchando (`observe`) y mostrando
-   `R` en la pantalla. Puede esperar tranquilo.
+> ⚠️ **El orden no es una sugerencia: el receptor va SIEMPRE primero.**
+> Un broadcast BLE sobrevive al final del programa que lo emitió si ese programa
+> nunca lo detuvo. Si el explorador queda transmitiendo, la corrida **siguiente**
+> arranca con el recuperador oyendo la coordenada de la **anterior** — sale
+> disparado hacia un punto viejo antes de que el explorador se mueva.
+>
+> Ese dato es una coordenada perfectamente válida, sólo que de otra corrida, así
+> que **no se puede detectar mirando el contenido**. Por eso hay dos defensas:
+> los transmisores paran solos después de un rato (`TRANSMISION_MS`), y el
+> recuperador exige **silencio en el canal** antes de aceptar nada
+> (`SILENCIOS_CANAL_LIBRE`). Si ve el canal ocupado lo avisa por la terminal.
+>
+> Síntoma típico: cada pieza funciona probada por separado y el integrado falla
+> con un error que no correlaciona con nada de la corrida en curso.
+
+1. **Recuperador primero.** Al arrancar espera a que el canal se libere, después
+   queda escuchando (`observe`) mostrando `R` en la pantalla. Puede esperar tranquilo.
 2. **Teléfono → Explorador.** Abrí la página de detección, conectá el hub del
    explorador y verificá que llegan los datos de la cámara.
 3. **Explorador después.** Busca, centra, se acerca y **transmite** la coordenada

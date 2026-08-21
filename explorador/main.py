@@ -229,4 +229,9 @@ for _ in range(50):
     radio.broadcast((obj_x, obj_y, clase_detectada))
     wait(100)
 
+# Dejar de transmitir: un broadcast que sobrevive a la corrida hace que la
+# SIGUIENTE arranque con el recuperador oyendo la coordenada de esta. El dato es
+# valido, solo que viejo, asi que no se puede detectar mirando el contenido.
+radio.broadcast(None)
+
 hub.display.char("F")

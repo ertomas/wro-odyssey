@@ -12,6 +12,12 @@ from pybricks.parameters import Port, Direction
 
 # --- Canal BLE (tiene que ser el MISMO que transmite el explorador) ---
 CANAL = 1
+SILENCIOS_CANAL_LIBRE = 10  # lecturas seguidas SIN datos antes de aceptar una
+                            # coordenada. Sirve para descartar un broadcast VIEJO:
+                            # si el explorador de una corrida anterior quedo
+                            # transmitiendo, aceptarlo mandaria el robot al sitio
+                            # de esa corrida. Exigir silencio primero garantiza que
+                            # la coordenada empezo DESPUES de que nos pusimos a oir.
 
 # --- Hardware: puertos y geometria del robot ---
 PUERTO_MOTOR_IZQ = Port.B
