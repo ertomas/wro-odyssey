@@ -45,6 +45,12 @@ robot = DriveBase(
     wheel_diameter=config.WHEEL_DIAMETER,
     axle_track=config.AXLE_TRACK,
 )
+# Suavizar la aceleracion: arrancar de golpe hace CABECEAR al chasis y el
+# ultrasonido termina apuntando al piso (deteccion falsa). Ver config.py.
+robot.settings(
+    straight_acceleration=config.ACELERACION_RECTA,
+    turn_acceleration=config.ACELERACION_GIRO,
+)
 
 garra = Motor(config.PUERTO_GARRA)               # abre/cierra la pinza
 elevador = Motor(config.PUERTO_ELEVADOR)         # sube/baja la garra
@@ -150,29 +156,41 @@ robot.straight(avance_ciego)
 #
 # 3a. Buscar: avanzar despacio hasta detectar el objeto a UMBRAL_DETECCION. Si no
 #     aparece en CREEP_MAX, se rinde en vez de seguir de largo y embestirlo.
+# Detectar y confirmar se REINTENTAN: una deteccion que no se sostiene con el
+# robot quieto no puede costar la mision. Antes se rendia y mostraba X; ahora
+# vuelve a arrancar y sigue buscando hasta agotar CREEP_MAX. El caso tipico es el
+# cabeceo del arranque: dura un instante y desaparece al frenar.
+limite = avance_ciego + config.CREEP_MAX
 en_rango = False
-robot.drive(config.VEL_APROXIMACION, 0)
-# Ignorar el arranque: el tiron inicial hace saltar la lectura a valores cercanos
-# (garra que se balancea / chasis que cabecea) y eso disparaba el agarre al toque.
-wait(config.ESPERA_ASENTAMIENTO)
-seguidas = 0
-while robot.distance() < avance_ciego + config.CREEP_MAX:
-    d = ultrasonido.distance()
-    print("Ultrasonido: %d mm" % d)
-    if d <= config.UMBRAL_DETECCION:
-        seguidas += 1
-        if seguidas >= config.CONFIRMACIONES_DETECCION:
-            en_rango = True
-            break
-    else:
-        seguidas = 0  # se corto la racha: era un pico, no un objeto
-    wait(20)
-robot.stop()
+d_confirmado = 0
 
-# 3b. Confirmar QUIETO y cubrir el resto con odometria. Re-medir parado saca el
-#     ruido de la marcha y, sobre todo, mide desde donde el robot QUEDO: eso
-#     absorbe solo el sobrepaso del frenado. Mediana para descartar picos.
-if en_rango:
+while robot.distance() < limite and not en_rango:
+    # Avanzar despacio hasta ver algo dentro del umbral.
+    detectado = False
+    robot.drive(config.VEL_APROXIMACION, 0)
+    # Ignorar el arranque: el tiron inicial hace cabecear el chasis y la lectura
+    # se cae aunque no haya nada delante.
+    wait(config.ESPERA_ASENTAMIENTO)
+    seguidas = 0
+    while robot.distance() < limite:
+        d = ultrasonido.distance()
+        print("Ultrasonido: %d mm" % d)
+        if d <= config.UMBRAL_DETECCION:
+            seguidas += 1
+            if seguidas >= config.CONFIRMACIONES_DETECCION:
+                detectado = True
+                break
+        else:
+            seguidas = 0  # se corto la racha: era un pico, no un objeto
+        wait(20)
+    robot.stop()
+
+    if not detectado:
+        break  # se agoto el recorrido sin ver nada
+
+    # 3b. Confirmar QUIETO. Re-medir parado saca el ruido de la marcha, deja
+    #     asentar el cabeceo y, sobre todo, mide desde donde el robot QUEDO: eso
+    #     absorbe el sobrepaso del frenado. Mediana para descartar picos.
     lecturas = []
     for _ in range(config.LECTURAS_CONFIRMACION):
         lecturas.append(ultrasonido.distance())
@@ -181,18 +199,20 @@ if en_rango:
     d_confirmado = lecturas[len(lecturas) // 2]
     print("Confirmacion quieto: %s -> mediana %d mm" % (lecturas, d_confirmado))
 
-    if d_confirmado > config.UMBRAL_DETECCION + config.MARGEN_CONFIRMACION:
-        # Parado no se sostiene lo que vimos en movimiento: era ruido.
-        print("Descartado: quieto lee %d mm, era ruido" % d_confirmado)
-        en_rango = False
+    if d_confirmado <= config.UMBRAL_DETECCION + config.MARGEN_CONFIRMACION:
+        en_rango = True
     else:
-        # Avance final por odometria hasta dejar el objeto en la ventana de
-        # captura. Si ya esta mas cerca que el objetivo, no nos movemos (y ojo:
-        # ahi la lectura ya cae en la zona no confiable, no le creemos).
-        avance_final = d_confirmado - config.DIST_OBJETIVO_FINAL
-        print("Avance final por odometria: %d mm" % avance_final)
-        if avance_final > 0:
-            robot.straight(avance_final)
+        # Parado no se sostiene: era cabeceo o ruido. Reintentar, no rendirse.
+        print("Descartado: quieto lee %d mm. Sigo avanzando." % d_confirmado)
+
+# 3c. Tramo final por ODOMETRIA hasta dejar el objeto en la ventana de captura.
+#     Si ya esta mas cerca que el objetivo no nos movemos: ahi la lectura cae en
+#     la zona no confiable del sensor y no le creemos.
+if en_rango:
+    avance_final = d_confirmado - config.DIST_OBJETIVO_FINAL
+    print("Avance final por odometria: %d mm" % avance_final)
+    if avance_final > 0:
+        robot.straight(avance_final)
 
 avance_total = robot.distance()  # cuanto avanzo en total, para volver al origen
 

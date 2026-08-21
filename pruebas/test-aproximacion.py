@@ -75,6 +75,9 @@ motor_izq = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motor_der = Motor(Port.A, Direction.CLOCKWISE)
 robot = DriveBase(motor_izq, motor_der,
                   wheel_diameter=WHEEL_DIAMETER, axle_track=AXLE_TRACK)
+# Suavizar la aceleracion: arrancar de golpe hace cabecear el chasis y el
+# ultrasonido apunta al piso. SYNC con recuperador/config.py.
+robot.settings(straight_acceleration=250, turn_acceleration=400)
 garra = Motor(Port.C)
 elevador = Motor(Port.D)
 ultrasonido = UltrasonicSensor(Port.E)
@@ -105,51 +108,65 @@ robot.reset()
 if AVANCE_CIEGO > 0:
     robot.straight(AVANCE_CIEGO)
 
-# --- 1. Buscar: avanzar despacio hasta detectar el objeto ---
-detectado = False
-d_deteccion = 0
-robot.drive(VEL_APROXIMACION, 0)
-wait(ESPERA_ASENTAMIENTO)  # ignorar el tiron del arranque (dispara falsos positivos)
-seguidas = 0
-while robot.distance() < AVANCE_CIEGO + BUSQUEDA_MAX:
-    d = ultrasonido.distance()
-    if d <= UMBRAL_DETECCION:
-        seguidas += 1
-        if seguidas >= CONFIRMACIONES_DETECCION:
-            detectado = True
-            d_deteccion = d
-            break
-    else:
-        seguidas = 0  # se corto la racha: era un pico
-    wait(20)
-robot.stop()
+# --- 1 y 2. Detectar y confirmar, con REINTENTO ---
+# Una deteccion que no se sostiene con el robot quieto no aborta la prueba: se
+# vuelve a arrancar y se sigue buscando. El caso tipico es el cabeceo del
+# arranque, que dura un instante y desaparece al frenar.
+limite = AVANCE_CIEGO + BUSQUEDA_MAX
+confirmado = False
+d_confirmado = 0
+descartes = 0
 
-if not detectado:
+while robot.distance() < limite and not confirmado:
+    detectado = False
+    d_deteccion = 0
+    robot.drive(VEL_APROXIMACION, 0)
+    wait(ESPERA_ASENTAMIENTO)  # ignorar el cabeceo del arranque
+    seguidas = 0
+    while robot.distance() < limite:
+        d = ultrasonido.distance()
+        if d <= UMBRAL_DETECCION:
+            seguidas += 1
+            if seguidas >= CONFIRMACIONES_DETECCION:
+                detectado = True
+                d_deteccion = d
+                break
+        else:
+            seguidas = 0  # se corto la racha: era un pico
+        wait(20)
+    robot.stop()
+
+    if not detectado:
+        break
+
+    print("Detectado a %d mm (tras avanzar %d mm)" % (d_deteccion, robot.distance()))
+
+    # Confirmar QUIETO: saca el ruido de la marcha, deja asentar el cabeceo y
+    # mide desde donde el robot QUEDO (absorbe el sobrepaso del frenado).
+    lecturas = []
+    for _ in range(LECTURAS_CONFIRMACION):
+        lecturas.append(ultrasonido.distance())
+        wait(30)
+    lecturas.sort()
+    d_confirmado = lecturas[len(lecturas) // 2]
+    print("Confirmacion quieto: %s -> mediana %d mm" % (lecturas, d_confirmado))
+    print("Dispersion: %d mm (si es grande, subi UMBRAL_DETECCION)"
+          % (lecturas[-1] - lecturas[0]))
+
+    if d_confirmado <= UMBRAL_DETECCION + MARGEN_CONFIRMACION:
+        confirmado = True
+    else:
+        descartes += 1
+        print("DESCARTADO #%d: quieto lee %d mm. Era cabeceo o ruido. Sigo."
+              % (descartes, d_confirmado))
+
+if descartes:
+    print("(hubo %d deteccion(es) falsa(s); si son muchas, bajá ACELERACION o"
+          " subí ESPERA_ASENTAMIENTO)" % descartes)
+
+if not confirmado:
     print("NO DETECTADO en %d mm. El objeto estaba fuera de alcance," % BUSQUEDA_MAX)
     print("o el sensor no lo ve (probalo con calibrar-ultrasonido.py).")
-    hub.display.char("X")
-    hub.speaker.beep(frequency=220, duration=600)
-    robot.straight(-robot.distance())  # volver al punto de partida
-    raise SystemExit
-
-print("Detectado a %d mm (tras avanzar %d mm)" % (d_deteccion, robot.distance()))
-
-# --- 2. Confirmar QUIETO y rematar por odometria ---
-# Medir parado saca el ruido de la marcha y mide desde donde el robot QUEDO,
-# asi que absorbe el sobrepaso del frenado. Mediana para descartar picos.
-lecturas = []
-for _ in range(LECTURAS_CONFIRMACION):
-    lecturas.append(ultrasonido.distance())
-    wait(30)
-lecturas.sort()
-d_confirmado = lecturas[len(lecturas) // 2]
-print("Confirmacion quieto: %s -> mediana %d mm" % (lecturas, d_confirmado))
-print("Dispersion: %d mm (si es grande, subi UMBRAL_DETECCION)"
-      % (lecturas[-1] - lecturas[0]))
-
-if d_confirmado > UMBRAL_DETECCION + MARGEN_CONFIRMACION:
-    print("DESCARTADO: quieto lee %d mm. Lo que vimos en marcha era ruido."
-          % d_confirmado)
     hub.display.char("X")
     hub.speaker.beep(frequency=220, duration=600)
     robot.straight(-robot.distance())

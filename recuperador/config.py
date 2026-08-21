@@ -73,6 +73,14 @@ UMBRAL_DETECCION = 150      # mm: lectura a la que se da por detectado el objeto
                             # 3x el minimo confiable y 1/3 de la lectura en vacio.
 DIST_OBJETIVO_FINAL = 45    # mm: donde queremos dejar el objeto antes de cerrar.
                             # Centro de la ventana de captura (agarra hasta 55).
+# --- Aceleracion: contra el cabeceo ---
+# Al arrancar de golpe el chasis CABECEA y el ultrasonido apunta al piso: lee
+# cerca y dispara una deteccion falsa. Suavizar la aceleracion ataca la causa
+# (los filtros de abajo son la red de seguridad). Los defaults de DriveBase son
+# bastante bruscos para un robot con la carga alta que tiene este.
+ACELERACION_RECTA = 250     # mm/s^2 (default ~500). Bajar si sigue cabeceando.
+ACELERACION_GIRO = 400      # deg/s^2. Mas suave = menos patinaje al pivotar.
+
 ESPERA_ASENTAMIENTO = 400   # ms de marcha antes de creerle al sensor. El tiron del
                             # arranque hace saltar la lectura de >400 a 55-70 (se
                             # balancea la garra / cabecea el chasis) y eso disparaba

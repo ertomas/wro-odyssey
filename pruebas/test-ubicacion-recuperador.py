@@ -90,6 +90,9 @@ radio = BLERadio(observe_channels=[CANAL])
 motor_izq = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motor_der = Motor(Port.A, Direction.CLOCKWISE)
 robot = DriveBase(motor_izq, motor_der, wheel_diameter=56, axle_track=164)
+# Suavizar la aceleracion: arrancar de golpe hace cabecear el chasis y el
+# ultrasonido apunta al piso (deteccion falsa). SYNC con recuperador/config.py.
+robot.settings(straight_acceleration=250, turn_acceleration=400)
 garra = Motor(Port.C)               # abre/cierra la pinza
 elevador = Motor(Port.D)            # sube/baja la garra
 ultrasonido = UltrasonicSensor(Port.E)
@@ -169,26 +172,36 @@ robot.straight(avance_ciego)
 # --- 3. Aproximacion final en DOS TRAMOS ---
 # 3a. Buscar: avanzar despacio hasta detectar el objeto a UMBRAL_DETECCION (zona
 #     confiable del sensor). Si no aparece en CREEP_MAX, se rinde.
+# Detectar y confirmar se REINTENTAN: una deteccion que no se sostiene quieto no
+# puede costar la mision. El caso tipico es el cabeceo del arranque: dura un
+# instante y desaparece al frenar.
+limite = avance_ciego + CREEP_MAX
 en_rango = False
-robot.drive(VEL_APROXIMACION, 0)
-wait(ESPERA_ASENTAMIENTO)  # ignorar el tiron del arranque
-seguidas = 0
-while robot.distance() < avance_ciego + CREEP_MAX:
-    d = ultrasonido.distance()
-    print("Ultrasonido: %d mm" % d)
-    if d <= UMBRAL_DETECCION:
-        seguidas += 1
-        if seguidas >= CONFIRMACIONES_DETECCION:
-            en_rango = True
-            break
-    else:
-        seguidas = 0  # se corto la racha: era un pico
-    wait(20)
-robot.stop()
+d_confirmado = 0
 
-# 3b. Confirmar QUIETO (mediana) y cubrir el resto con odometria. Medir parado
-#     absorbe el sobrepaso del frenado: el avance sale de la posicion REAL.
-if en_rango:
+while robot.distance() < limite and not en_rango:
+    detectado = False
+    robot.drive(VEL_APROXIMACION, 0)
+    wait(ESPERA_ASENTAMIENTO)  # ignorar el cabeceo del arranque
+    seguidas = 0
+    while robot.distance() < limite:
+        d = ultrasonido.distance()
+        print("Ultrasonido: %d mm" % d)
+        if d <= UMBRAL_DETECCION:
+            seguidas += 1
+            if seguidas >= CONFIRMACIONES_DETECCION:
+                detectado = True
+                break
+        else:
+            seguidas = 0  # se corto la racha: era un pico
+        wait(20)
+    robot.stop()
+
+    if not detectado:
+        break  # se agoto el recorrido sin ver nada
+
+    # 3b. Confirmar QUIETO (mediana). Medir parado deja asentar el cabeceo y mide
+    #     desde donde el robot QUEDO: absorbe el sobrepaso del frenado.
     lecturas = []
     for _ in range(LECTURAS_CONFIRMACION):
         lecturas.append(ultrasonido.distance())
@@ -197,14 +210,17 @@ if en_rango:
     d_confirmado = lecturas[len(lecturas) // 2]
     print("Confirmacion quieto: %s -> mediana %d mm" % (lecturas, d_confirmado))
 
-    if d_confirmado > UMBRAL_DETECCION + MARGEN_CONFIRMACION:
-        print("Descartado: quieto lee %d mm, era ruido" % d_confirmado)
-        en_rango = False
+    if d_confirmado <= UMBRAL_DETECCION + MARGEN_CONFIRMACION:
+        en_rango = True
     else:
-        avance_final = d_confirmado - DIST_OBJETIVO_FINAL
-        print("Avance final por odometria: %d mm" % avance_final)
-        if avance_final > 0:
-            robot.straight(avance_final)
+        print("Descartado: quieto lee %d mm. Sigo avanzando." % d_confirmado)
+
+# 3c. Tramo final por ODOMETRIA.
+if en_rango:
+    avance_final = d_confirmado - DIST_OBJETIVO_FINAL
+    print("Avance final por odometria: %d mm" % avance_final)
+    if avance_final > 0:
+        robot.straight(avance_final)
 
 avance_total = robot.distance()  # cuanto avanzo en total, para volver al origen
 print("Fin de la aproximacion: avance_total=%d mm | en_rango=%s" % (avance_total, en_rango))
