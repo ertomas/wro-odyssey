@@ -22,6 +22,13 @@
 #                          BAJAR axle_track -> gira MENOS
 #                      Calibra la recta PRIMERO: el giro se apoya en el diametro.
 #
+#   MODO = "giro-corto" -> encadena PASOS_GIRO_CORTO giros chicos que suman 360,
+#                      frenando entre uno y otro. Un robot puede clavar 3 vueltas
+#                      de corrido y quedarse CORTO en giros chicos: el juego de
+#                      los engranajes y la friccion estatica se pagan UNA VEZ POR
+#                      GIRO. La mision hace un solo giro chico hacia la
+#                      coordenada, asi que este ensayo es el que la representa.
+#
 #   MODO = "signo"  -> gira 90 grados una sola vez, para confirmar hacia que
 #                      lado gira el positivo. Lo ESPERADO es DERECHA (horario):
 #                      es la convencion estandar de Pybricks y es la que asume
@@ -43,8 +50,8 @@ from pybricks.robotics import DriveBase
 from pybricks.tools import wait
 
 # --- Que robot y que ensayo ---
-ROBOT = "explorador"    # "recuperador" o "explorador"
-MODO = "giro"          # "recta", "giro" o "signo"
+ROBOT = "recuperador"   # "recuperador" o "explorador"
+MODO = "giro-corto"     # "recta", "giro", "giro-corto" o "signo"
 
 DISTANCIA_RECTA = 800   # mm del ensayo de recta. Cuanto mas largo, mejor promedia
                         # el error, pero tiene que ENTRAR en la pista con margen:
@@ -54,6 +61,8 @@ DISTANCIA_RECTA = 800   # mm del ensayo de recta. Cuanto mas largo, mejor promed
 VUELTAS_GIRO = 3        # vueltas completas del ensayo de giro. Una sola vuelta deja
                         # un error demasiado chico para medirlo a ojo; con 3 se
                         # triplica y se ve claro contra la linea del piso.
+PASOS_GIRO_CORTO = 8    # giros encadenados de 360/PASOS en el modo "giro-corto"
+                        # (8 -> giros de 45 grados, parecidos a los de la mision)
 PAUSA_INICIAL = 2000    # ms antes de moverse, para soltar el robot y sacar la mano
 
 # --- Valores actuales por robot (SYNC con el config.py de cada carpeta) ---
@@ -95,6 +104,21 @@ elif MODO == "giro":
     print("Estima cuantos giro DE VERDAD y ajusta:")
     print("  nuevo = %d * (%d / grados_reales)" % (AXLE_TRACK, grados))
     print("Giro de MENOS -> subi axle_track. Giro de MAS -> bajalo.")
+elif MODO == "giro-corto":
+    # Un robot puede clavar 1080 grados de corrido y quedarse CORTO en giros
+    # chicos: al arrancar y frenar cada giro entran el juego de los engranajes y
+    # la friccion estatica, y ese error se paga UNA VEZ POR GIRO. La mision hace
+    # un solo giro chico hacia la coordenada, asi que es este el que importa.
+    # Encadenamos varios y miramos el acumulado.
+    paso = 360 // PASOS_GIRO_CORTO
+    for _ in range(PASOS_GIRO_CORTO):
+        robot.turn(paso)
+        wait(300)  # frenar del todo entre giros, como en la mision
+    print("Pedi %d giros de %d = 360 grados." % (PASOS_GIRO_CORTO, paso))
+    print("Angulo que cree haber girado: %d" % robot.angle())
+    print("Si quedo CORTO respecto de la vuelta completa, los giros chicos")
+    print("  pierden mas que uno continuo: subi axle_track hasta que cierre,")
+    print("  aunque el modo 'giro' ya diera bien.")
 else:  # "signo"
     robot.turn(90)
     print("Pedi +90 grados. Lo ESPERADO es que gire a la DERECHA (horario).")
